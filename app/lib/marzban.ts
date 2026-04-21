@@ -77,6 +77,21 @@ export interface MarzbanUserInfo {
   subscription_url: string
 }
 
+type InboundItem = { tag?: string | null }
+type InboundsResponse = Record<string, InboundItem[]>
+
+async function getAllInboundsPayload(): Promise<Record<string, string[]>> {
+  const inbounds = await marzbanRequest<InboundsResponse>('GET', '/api/inbounds')
+  if (!inbounds) return {}
+  const payload: Record<string, string[]> = {}
+  for (const [protocol, items] of Object.entries(inbounds)) {
+    payload[protocol] = (items || [])
+      .map((item) => item?.tag || '')
+      .filter((tag) => tag.length > 0)
+  }
+  return payload
+}
+
 export async function createDeviceMarzbanUser(
   userId: number,
   deviceDbId: number,
@@ -85,11 +100,14 @@ export async function createDeviceMarzbanUser(
 ): Promise<{ username: string; subLink: string } | null> {
   if (!MARZBAN_URL) return null
   const username = deviceMarzbanUsername(userId, deviceDbId)
+  const inboundsPayload = await getAllInboundsPayload()
   let result: MarzbanUserInfo | null = null
   try {
     result = await marzbanRequest<MarzbanUserInfo>('POST', '/api/user', {
       username,
       proxies: { vless: {} },
+      inbounds: inboundsPayload,
+      excluded_inbounds: {},
       expire: expireTimestamp,
       data_limit: 0,
       data_limit_reset_strategy: 'no_reset',

@@ -1,6 +1,6 @@
 import logging
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 import requests
@@ -73,6 +73,20 @@ class MarzbanAPI:
             raise RuntimeError(f'Marzban {method} {path} → {resp.status_code}: {resp.text}')
         return resp.json() if resp.content else {}
 
+    def _get_inbounds_payload(self) -> dict[str, list[str]]:
+        inbounds_data = self._request('GET', '/api/inbounds') or {}
+        payload: dict[str, list[str]] = {}
+        for protocol, inbounds in inbounds_data.items():
+            tags: list[str] = []
+            if isinstance(inbounds, list):
+                for inbound in inbounds:
+                    if isinstance(inbound, dict):
+                        tag = inbound.get('tag')
+                        if isinstance(tag, str) and tag:
+                            tags.append(tag)
+            payload[str(protocol)] = tags
+        return payload
+
     # ─── Per-device helpers ───────────────────────────────────────────────────
 
     def create_device_user(
@@ -80,9 +94,12 @@ class MarzbanAPI:
     ) -> dict[str, Any]:
         """Create a Marzban user for a specific device."""
         username = device_marzban_username(user_id, device_db_id)
+        inbounds_payload = self._get_inbounds_payload()
         payload: dict[str, Any] = {
             'username': username,
             'proxies': {'vless': {}},
+            'inbounds': inbounds_payload,
+            'excluded_inbounds': {},
             'expire': expire_timestamp,
             'data_limit': 0,
             'data_limit_reset_strategy': 'no_reset',
