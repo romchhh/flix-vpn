@@ -4,16 +4,6 @@ import { useRef } from 'react'
 import { PLANS, type Plan } from '../types'
 import { PlanCard } from './PlanCard'
 
-interface LastPaymentInfo {
-  localPaymentId: string
-  mode: 'recurring' | 'one_time'
-  paymentUrl: string
-  originalPrice?: number
-  discountApplied?: number
-  finalPrice?: number
-  paidFromBalanceOnly?: boolean
-}
-
 interface TariffsScreenProps {
   selectedPlan: Plan['id']
   activePlan: Plan['id'] | null
@@ -22,7 +12,6 @@ interface TariffsScreenProps {
   onToggleReferralBalance: (enabled: boolean) => void
   onSelectPlan: (planId: Plan['id']) => void
   onSubscribe: () => void
-  lastPayment: LastPaymentInfo | null
 }
 
 export function TariffsScreen({
@@ -33,7 +22,6 @@ export function TariffsScreen({
   onToggleReferralBalance,
   onSelectPlan,
   onSubscribe,
-  lastPayment,
 }: TariffsScreenProps) {
   const paymentSectionRef = useRef<HTMLElement | null>(null)
   const selected = PLANS.find((plan) => plan.id === selectedPlan)
@@ -110,33 +98,6 @@ export function TariffsScreen({
           <span aria-hidden className="text-base leading-none">✓</span>
           Оформити підписку
         </button>
-        {lastPayment && (
-          <div className="lg-inner mt-3 rounded-xl p-3 text-sm">
-            <p className="font-semibold text-white">Остання генерація оплати</p>
-            <p className="mt-0.5 text-white/60">
-              Сума:{' '}
-              {typeof lastPayment.finalPrice === 'number'
-                ? lastPayment.finalPrice.toFixed(2)
-                : (selected?.price || 0).toFixed(2)}{' '}
-              грн
-            </p>
-            {lastPayment.paymentUrl ? (
-              <a
-                href={lastPayment.paymentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-white transition hover:brightness-110"
-                style={{ background: 'rgba(34,211,238,0.15)', border: '1px solid rgba(34,211,238,0.3)' }}
-              >
-                Відкрити посилання на оплату
-              </a>
-            ) : (
-              <p className="mt-2 font-semibold text-emerald-400">
-                Оплата покрита балансом рефералки
-              </p>
-            )}
-          </div>
-        )}
       </section>
     </div>
   )

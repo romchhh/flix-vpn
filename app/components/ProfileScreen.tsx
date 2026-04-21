@@ -93,7 +93,19 @@ export function ProfileScreen({
   onShareReferral,
 }: ProfileScreenProps) {
   const [showFaq, setShowFaq] = useState(false)
+  const [copied, setCopied] = useState(false)
   const referralLink = userId ? generateReferralLink(botName, userId) : ''
+
+  const handleCopyReferralLink = async () => {
+    if (!referralLink) return
+    try {
+      await navigator.clipboard.writeText(referralLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      window.alert('Не вдалося скопіювати посилання')
+    }
+  }
 
   return (
     <div className={styles.screen}>
@@ -172,11 +184,12 @@ export function ProfileScreen({
             <button
               type="button"
               className={styles.copyBtn}
-              onClick={() => referralLink && navigator.clipboard.writeText(referralLink)}
+              onClick={handleCopyReferralLink}
             >
               Копіювати
             </button>
           </div>
+          {copied && <p className="mt-2 text-sm font-semibold text-emerald-400">Посилання скопійовано</p>}
           <button
             type="button"
             onClick={onShareReferral}

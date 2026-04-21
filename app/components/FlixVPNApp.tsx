@@ -145,7 +145,6 @@ export function FlixVPNApp() {
   const [nextRecurringPaymentDate, setNextRecurringPaymentDate] = useState<string | null>(null)
   const [recurringEnabled, setRecurringEnabled] = useState(false)
   const [vpnAccessLink, setVpnAccessLink] = useState<string | null>(null)
-  const [lastPayment, setLastPayment] = useState<PaymentCreateResult | null>(null)
   const [selectedOs, setSelectedOs] = useState<OsId>(OS_INSTALL_OPTIONS[0].id)
   const [applyReferralBalance, setApplyReferralBalance] = useState(true)
   const [referralCount, setReferralCount] = useState(0)
@@ -206,7 +205,6 @@ export function FlixVPNApp() {
         return
       }
       const payment = (await response.json()) as PaymentCreateResult
-      setLastPayment(payment)
       if (payment.paymentUrl) {
         openExternalUrl(payment.paymentUrl)
       }
@@ -457,7 +455,6 @@ export function FlixVPNApp() {
             onToggleReferralBalance={setApplyReferralBalance}
             onSelectPlan={setSelectedPlan}
             onSubscribe={handleSubscribe}
-            lastPayment={lastPayment}
           />
         )
       case 'subscriptions':
