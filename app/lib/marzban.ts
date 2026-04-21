@@ -78,6 +78,7 @@ export async function createDeviceMarzbanUser(
   userId: number,
   deviceDbId: number,
   expireTimestamp: number,
+  note?: string,
 ): Promise<{ username: string; subLink: string } | null> {
   if (!MARZBAN_URL) return null
   const username = deviceMarzbanUsername(userId, deviceDbId)
@@ -89,6 +90,7 @@ export async function createDeviceMarzbanUser(
       expire: expireTimestamp,
       data_limit: 0,
       data_limit_reset_strategy: 'no_reset',
+      ...(note ? { note } : {}),
     })
   } catch (error) {
     if (!isMarzbanAlreadyExistsError(error)) {
@@ -98,6 +100,7 @@ export async function createDeviceMarzbanUser(
     await marzbanRequest('PUT', `/api/user/${username}`, {
       expire: expireTimestamp,
       status: 'active',
+      ...(note ? { note } : {}),
     })
     result = await marzbanRequest<MarzbanUserInfo>('GET', `/api/user/${username}`)
   }

@@ -15,7 +15,7 @@ interface TelegramWindow {
   Telegram?: {
     WebApp?: {
       initData?: string
-      openLink?: (url: string) => void
+      openLink?: (url: string, options?: { try_instant_view?: boolean; try_browser?: string }) => void
       initDataUnsafe?: {
         user?: {
           id?: number
@@ -93,8 +93,34 @@ function getUserIdFromRawInitData(initData: string): number | null {
   }
 }
 
+function extractHttpUrlFromHappLink(url: string): string | null {
+  const prefix = 'happ://add/'
+  if (!url.startsWith(prefix)) return null
+  const target = url.slice(prefix.length)
+  if (target.startsWith('https://') || target.startsWith('http://')) return target
+  return null
+}
+
 function openExternalUrl(url: string) {
   const tg = (window as TelegramWindow).Telegram?.WebApp
+  const fallbackHttpUrl = extractHttpUrlFromHappLink(url)
+
+  // Custom scheme links can be blocked in Telegram WebView when using tg.openLink.
+  // Try to open the app directly, then fallback to web subscription URL.
+  if (url.startsWith('happ://')) {
+    window.location.href = url
+    if (fallbackHttpUrl) {
+      window.setTimeout(() => {
+        if (tg?.openLink) {
+          tg.openLink(fallbackHttpUrl, { try_browser: 'chrome' })
+          return
+        }
+        window.open(fallbackHttpUrl, '_blank', 'noopener,noreferrer')
+      }, 800)
+    }
+    return
+  }
+
   if (tg?.openLink) {
     tg.openLink(url)
     return
@@ -465,6 +491,7 @@ export function FlixVPNApp() {
             canAddDevice={activeDevices.length < MAX_ACTIVE_DEVICES}
             onAddDevice={handleAddDevice}
             onRemoveDevice={handleRemoveDevice}
+            onConnectDevice={openExternalUrl}
           />
         )
       case 'profile':

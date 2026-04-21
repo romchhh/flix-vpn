@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import requests
+from utils.time_utils import now_kyiv
 
 logger = logging.getLogger(__name__)
 
@@ -67,17 +68,20 @@ class MarzbanAPI:
     # ─── Per-device helpers ───────────────────────────────────────────────────
 
     def create_device_user(
-        self, user_id: int, device_db_id: int, expire_timestamp: int
+        self, user_id: int, device_db_id: int, expire_timestamp: int, note: str | None = None
     ) -> dict[str, Any]:
         """Create a Marzban user for a specific device."""
         username = device_marzban_username(user_id, device_db_id)
-        result = self._request('POST', '/api/user', json_body={
+        payload: dict[str, Any] = {
             'username': username,
             'proxies': {'vless': {}},
             'expire': expire_timestamp,
             'data_limit': 0,
             'data_limit_reset_strategy': 'no_reset',
-        })
+        }
+        if note:
+            payload['note'] = note
+        result = self._request('POST', '/api/user', json_body=payload)
         return result or {}
 
     def disable_device_user(self, user_id: int, device_db_id: int) -> None:
@@ -88,12 +92,15 @@ class MarzbanAPI:
     def disable_by_name(self, marzban_username: str) -> None:
         self._request('PUT', f'/api/user/{marzban_username}', json_body={'status': 'disabled'})
 
-    def extend_by_name(self, marzban_username: str, new_expire_ts: int) -> None:
+    def extend_by_name(self, marzban_username: str, new_expire_ts: int, note: str | None = None) -> None:
         """Set a new expiry timestamp for a Marzban user."""
-        self._request('PUT', f'/api/user/{marzban_username}', json_body={
+        payload: dict[str, Any] = {
             'expire': new_expire_ts,
             'status': 'active',
-        })
+        }
+        if note:
+            payload['note'] = note
+        self._request('PUT', f'/api/user/{marzban_username}', json_body=payload)
 
     def get_user_info(self, marzban_username: str) -> dict[str, Any] | None:
         return self._request('GET', f'/api/user/{marzban_username}')
@@ -109,17 +116,45 @@ class MarzbanAPI:
     ) -> None:
         """Extend all active device Marzban accounts for a user."""
         rows = conn.execute(
-            """SELECT marzban_username
-               FROM user_devices
-               WHERE user_id = ? AND status = 'active' AND marzban_username IS NOT NULL""",
+            """SELECT
+                   d.id,
+                   d.device_name,
+                   d.marzban_username,
+                   u.user_name,
+                   u.user_first_name,
+                   COALESCE(s.status, 'inactive') AS subscription_status,
+                   s.months
+               FROM user_devices d
+               LEFT JOIN users u ON u.user_id = d.user_id
+               LEFT JOIN subscriptions s ON s.user_id = d.user_id
+               WHERE d.user_id = ? AND d.status = 'active' AND d.marzban_username IS NOT NULL""",
             (user_id,),
         ).fetchall()
         for row in rows:
-            marzban_username = row['marzban_username'] if isinstance(row, dict) else row[0]
+            marzban_username = row['marzban_username'] if isinstance(row, dict) else row[2]
             if not marzban_username:
                 continue
             try:
-                self.extend_by_name(marzban_username, new_expire_ts)
+                device_id = row['id'] if isinstance(row, dict) else row[0]
+                device_name = row['device_name'] if isinstance(row, dict) else row[1]
+                user_name = row['user_name'] if isinstance(row, dict) else row[3]
+                user_first_name = row['user_first_name'] if isinstance(row, dict) else row[4]
+                subscription_status = row['subscription_status'] if isinstance(row, dict) else row[5]
+                subscription_months = row['months'] if isinstance(row, dict) else row[6]
+                new_end_date = datetime.fromtimestamp(new_expire_ts).isoformat()
+                note = "\n".join([
+                    "Flix VPN device account",
+                    f"user_id: {user_id}",
+                    f"username: @{user_name}" if user_name else "username: —",
+                    f"name: {user_first_name or '—'}",
+                    f"device_id: {device_id}",
+                    f"device_name: {device_name or '—'}",
+                    f"subscription_status: {subscription_status or 'inactive'}",
+                    f"subscription_plan_months: {subscription_months if subscription_months is not None else '—'}",
+                    f"subscription_end_date: {new_end_date}",
+                    f"generated_at_kyiv: {now_kyiv().isoformat()}",
+                ])
+                self.extend_by_name(marzban_username, new_expire_ts, note=note)
             except Exception:
                 logger.exception('Failed to extend Marzban device user %s', marzban_username)
 

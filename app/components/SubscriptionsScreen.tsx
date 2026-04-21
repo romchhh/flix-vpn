@@ -9,6 +9,7 @@ interface SubscriptionsScreenProps {
   canAddDevice: boolean
   onAddDevice: () => Promise<void> | void
   onRemoveDevice: (deviceId: number) => Promise<void> | void
+  onConnectDevice: (url: string) => void
 }
 
 function getDeviceIcon(deviceName: string) {
@@ -42,6 +43,7 @@ export function SubscriptionsScreen({
   canAddDevice,
   onAddDevice,
   onRemoveDevice,
+  onConnectDevice,
 }: SubscriptionsScreenProps) {
   const handleCopy = (url: string) => {
     navigator.clipboard.writeText(url).catch(() => null)
@@ -124,13 +126,14 @@ export function SubscriptionsScreen({
                       >
                         Копіювати
                       </button>
-                      <a
-                        href={device.subscriptionUrl}
+                      <button
+                        type="button"
+                        onClick={() => device.subscriptionUrl && onConnectDevice(device.subscriptionUrl)}
                         className="flex-1 rounded-lg py-2 text-center text-xs font-semibold text-cyan-300 transition hover:text-cyan-200"
                         style={{ background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.22)' }}
                       >
                         Підключити
-                      </a>
+                      </button>
                     </div>
                   </div>
                 ) : (

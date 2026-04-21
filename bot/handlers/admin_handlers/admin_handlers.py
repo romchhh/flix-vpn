@@ -66,11 +66,19 @@ def _format_user_row(index: int, user: dict) -> str:
     months = user.get('subscription_months')
     months_label = f"{months} міс." if months else '—'
     end_date = html.escape(user.get('subscription_end_date') or '—')
+    recurring_enabled = bool(user.get('recurring_enabled'))
+    recurring_card_token = user.get('recurring_card_token') if recurring_enabled else None
+    token_line = (
+        f"\n   Токен: <code>{html.escape(str(recurring_card_token))}</code>"
+        if recurring_card_token
+        else ("\n   Токен: <code>не знайдено</code>" if recurring_enabled else "")
+    )
     return (
         f"{index}. <code>{user['user_id']}</code> | {username}\n"
         f"   Ім'я: {first_name}\n"
         f"   Статус: {status} | План: {months_label}\n"
         f"   До: {end_date}"
+        f"{token_line}"
     )
 
 

@@ -39,6 +39,41 @@ function isSubscriptionActive(status: string | null, endDate: string | null): bo
   return status === 'active' && !!endDate && endDate > nowKyivIso()
 }
 
+function buildMarzbanNote(params: {
+  userId: number
+  username: string | null
+  firstName: string | null
+  deviceDbId: number
+  deviceName: string
+  months: number | null
+  status: string | null
+  endDate: string | null
+}): string {
+  const {
+    userId,
+    username,
+    firstName,
+    deviceDbId,
+    deviceName,
+    months,
+    status,
+    endDate,
+  } = params
+
+  return [
+    'Flix VPN device account',
+    `user_id: ${userId}`,
+    `username: ${username ? `@${username}` : '—'}`,
+    `name: ${firstName || '—'}`,
+    `device_id: ${deviceDbId}`,
+    `device_name: ${deviceName}`,
+    `subscription_status: ${status || 'inactive'}`,
+    `subscription_plan_months: ${months ?? '—'}`,
+    `subscription_end_date: ${endDate || '—'}`,
+    `generated_at_kyiv: ${nowKyivIso()}`,
+  ].join('\n')
+}
+
 export async function POST(request: NextRequest) {
   const userId = getAuthorizedUserId(request)
   if (!userId) {
@@ -54,10 +89,22 @@ export async function POST(request: NextRequest) {
   const db = openDb()
   try {
     const user = db.prepare(
-      `SELECT COALESCE(status, 'inactive') AS subscription_status, end_date AS subscription_end_date
-       FROM subscriptions
-       WHERE user_id = ?`,
-    ).get(userId) as { subscription_status: string | null; subscription_end_date: string | null } | undefined
+      `SELECT
+         COALESCE(s.status, 'inactive') AS subscription_status,
+         s.end_date AS subscription_end_date,
+         s.months AS subscription_months,
+         u.user_name AS user_name,
+         u.user_first_name AS user_first_name
+       FROM subscriptions s
+       LEFT JOIN users u ON u.user_id = s.user_id
+       WHERE s.user_id = ?`,
+    ).get(userId) as {
+      subscription_status: string | null
+      subscription_end_date: string | null
+      subscription_months: number | null
+      user_name: string | null
+      user_first_name: string | null
+    } | undefined
 
     if (!user || !isSubscriptionActive(user.subscription_status, user.subscription_end_date)) {
       return NextResponse.json({ error: 'Підписка неактивна' }, { status: 403 })
@@ -89,7 +136,17 @@ export async function POST(request: NextRequest) {
     let subscriptionUrl: string | null = null
 
     try {
-      const marzban = await createDeviceMarzbanUser(userId, deviceDbId, expireTs)
+      const note = buildMarzbanNote({
+        userId,
+        username: user.user_name,
+        firstName: user.user_first_name,
+        deviceDbId,
+        deviceName,
+        months: user.subscription_months,
+        status: user.subscription_status,
+        endDate: user.subscription_end_date,
+      })
+      const marzban = await createDeviceMarzbanUser(userId, deviceDbId, expireTs, note)
       if (marzban) {
         marzbanUsername = marzban.username
         subscriptionUrl = marzban.subLink

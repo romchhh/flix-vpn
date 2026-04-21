@@ -399,9 +399,12 @@ def get_subscription_users_page(
             COALESCE(s.status, 'inactive'),
             s.months,
             s.end_date,
-            u.last_activity
+            u.last_activity,
+            COALESCE(s.recurring_enabled, 0) AS recurring_enabled,
+            rs.card_token
         FROM users u
         LEFT JOIN subscriptions s ON s.user_id = u.user_id
+        LEFT JOIN recurring_subscriptions rs ON rs.user_id = u.user_id
         {where_sql}
         ORDER BY u.id DESC
     '''
@@ -418,6 +421,8 @@ def get_subscription_users_page(
             'subscription_months': row[4],
             'subscription_end_date': row[5],
             'last_activity': row[6],
+            'recurring_enabled': bool(row[7]),
+            'recurring_card_token': row[8],
         }
         if section == 'active':
             end_date = _parse_subscription_end_date(item['subscription_end_date'])
