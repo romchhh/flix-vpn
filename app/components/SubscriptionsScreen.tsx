@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { IosIcon, MacosIcon, WindowsIcon } from './DeviceIcons'
+import { AndroidIcon, AndroidTvIcon, AppleTvIcon, IosIcon, MacosIcon, WindowsIcon } from './DeviceIcons'
 import type { ActiveDevice } from './FlixVPNApp'
 
 interface SubscriptionsScreenProps {
@@ -15,6 +15,9 @@ interface SubscriptionsScreenProps {
 
 function getDeviceIcon(deviceName: string) {
   const n = deviceName.toLowerCase()
+  if (n.includes('apple tv') || n.includes('appletv') || n.includes('tvos')) return <AppleTvIcon />
+  if (n.includes('android tv')) return <AndroidTvIcon />
+  if (n.includes('android')) return <AndroidIcon />
   if (n.includes('ios') || n.includes('iphone') || n.includes('ipad')) return <IosIcon />
   if (n.includes('windows')) return <WindowsIcon />
   if (n.includes('mac')) return <MacosIcon />
@@ -47,11 +50,18 @@ export function SubscriptionsScreen({
   onConnectDevice,
 }: SubscriptionsScreenProps) {
   const [copiedId, setCopiedId] = useState<number | null>(null)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
   const handleCopy = (url: string, deviceId: number) => {
     navigator.clipboard.writeText(url).catch(() => null)
     setCopiedId(deviceId)
     setTimeout(() => setCopiedId(null), 1800)
+  }
+
+  const handleRemoveDevice = async (deviceId: number) => {
+    const shouldRemove = window.confirm('Видалити цей пристрій?')
+    if (!shouldRemove) return
+    await onRemoveDevice(deviceId)
   }
 
   return (
@@ -74,14 +84,7 @@ export function SubscriptionsScreen({
               <div key={device.id} className="lg-inner rounded-2xl p-4">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <span
-                      className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
-                      style={{
-                        background: 'rgba(34,211,238,0.12)',
-                        border: '1px solid rgba(34,211,238,0.22)',
-                        boxShadow: '0 0 10px rgba(34,211,238,0.1)',
-                      }}
-                    >
+                    <span className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center">
                       {getDeviceIcon(device.name)}
                     </span>
                     <div>
@@ -94,16 +97,23 @@ export function SubscriptionsScreen({
                           Активний
                         </span>
                         <TrafficBadge mb={device.usedTrafficMb} />
+                        <span className="text-xs text-white/45">Використано</span>
                       </div>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => onRemoveDevice(device.id)}
-                    className="flex-shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium text-red-300 transition hover:text-red-200 hover:brightness-110"
-                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)' }}
+                    onClick={() => handleRemoveDevice(device.id)}
+                    aria-label="Видалити пристрій"
+                    title="Видалити пристрій"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-white/35 transition hover:bg-red-500/10 hover:text-red-300"
                   >
-                    Видалити
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M4 7h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      <path d="M9 4h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      <path d="M8 7v12m8-12v12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                      <path d="M6.5 7l1 13h9l1-13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </svg>
                   </button>
                 </div>
 
@@ -115,10 +125,15 @@ export function SubscriptionsScreen({
                     <p className="mb-1.5 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-white/40">
                       VPN-посилання
                     </p>
-                    <p className="break-all font-mono text-[0.78rem] text-cyan-300">
-                      {device.subscriptionUrl}
-                    </p>
                     <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId((prev) => (prev === device.id ? null : device.id))}
+                        className="rounded-lg px-3 py-2 text-xs font-semibold text-white/70 transition hover:text-white"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}
+                      >
+                        {expandedId === device.id ? 'Сховати посилання' : 'Показати посилання'}
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleCopy(device.subscriptionUrl!, device.id)}
@@ -139,9 +154,11 @@ export function SubscriptionsScreen({
                         Відкрити Happ
                       </button>
                     </div>
-                    <p className="mt-1.5 text-[0.68rem] text-white/30">
-                      Натисніть «Відкрити Happ» — додаток запуститься автоматично
-                    </p>
+                    {expandedId === device.id && (
+                      <p className="mt-2 break-all font-mono text-[0.78rem] text-cyan-300">
+                        {device.subscriptionUrl}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <p className="mt-2 text-xs text-amber-300">
