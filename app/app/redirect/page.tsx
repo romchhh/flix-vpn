@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-export default function RedirectPage() {
+function RedirectContent() {
   const params = useSearchParams()
   const [target, setTarget] = useState<string | null>(null)
   const [triggered, setTriggered] = useState(false)
@@ -66,5 +66,19 @@ export default function RedirectPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function RedirectPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-900 px-6 text-center">
+          <p className="text-white/60">Підготовка переходу…</p>
+        </div>
+      }
+    >
+      <RedirectContent />
+    </Suspense>
   )
 }
