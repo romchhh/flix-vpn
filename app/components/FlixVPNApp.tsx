@@ -93,30 +93,23 @@ function getUserIdFromRawInitData(initData: string): number | null {
   }
 }
 
-function extractHttpUrlFromHappLink(url: string): string | null {
-  const prefix = 'happ://add/'
-  if (!url.startsWith(prefix)) return null
-  const target = url.slice(prefix.length)
-  if (target.startsWith('https://') || target.startsWith('http://')) return target
-  return null
+function buildRedirectUrl(deepLink: string): string {
+  // Opens via our /redirect page so Telegram opens it in an external browser,
+  // which then passes the custom scheme (happ://) to the OS/app.
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${base}/redirect?to=${encodeURIComponent(deepLink)}`
 }
 
 function openExternalUrl(url: string) {
   const tg = (window as TelegramWindow).Telegram?.WebApp
-  const fallbackHttpUrl = extractHttpUrlFromHappLink(url)
 
-  // Custom scheme links can be blocked in Telegram WebView when using tg.openLink.
-  // Try to open the app directly, then fallback to web subscription URL.
   if (url.startsWith('happ://')) {
-    window.location.href = url
-    if (fallbackHttpUrl) {
-      window.setTimeout(() => {
-        if (tg?.openLink) {
-          tg.openLink(fallbackHttpUrl, { try_browser: 'chrome' })
-          return
-        }
-        window.open(fallbackHttpUrl, '_blank', 'noopener,noreferrer')
-      }, 800)
+    // Must go through an https redirect page so Telegram's openLink accepts it.
+    const redirectUrl = buildRedirectUrl(url)
+    if (tg?.openLink) {
+      tg.openLink(redirectUrl)
+    } else {
+      window.open(redirectUrl, '_blank', 'noopener,noreferrer')
     }
     return
   }

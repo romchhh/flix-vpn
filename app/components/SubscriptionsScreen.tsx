@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { IosIcon, MacosIcon, WindowsIcon } from './DeviceIcons'
 import type { ActiveDevice } from './FlixVPNApp'
 
@@ -45,9 +46,12 @@ export function SubscriptionsScreen({
   onRemoveDevice,
   onConnectDevice,
 }: SubscriptionsScreenProps) {
-  const handleCopy = (url: string) => {
+  const [copiedId, setCopiedId] = useState<number | null>(null)
+
+  const handleCopy = (url: string, deviceId: number) => {
     navigator.clipboard.writeText(url).catch(() => null)
-    window.alert('Посилання скопійовано!')
+    setCopiedId(deviceId)
+    setTimeout(() => setCopiedId(null), 1800)
   }
 
   return (
@@ -117,14 +121,14 @@ export function SubscriptionsScreen({
                     <div className="mt-2 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => handleCopy(device.subscriptionUrl!)}
+                        onClick={() => handleCopy(device.subscriptionUrl!, device.id)}
                         className="flex-1 rounded-lg py-2 text-xs font-bold text-white transition hover:brightness-110"
                         style={{
                           background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
                           boxShadow: '0 2px 10px rgba(34,211,238,0.2)',
                         }}
                       >
-                        Копіювати
+                        {copiedId === device.id ? '✓ Скопійовано' : 'Копіювати'}
                       </button>
                       <button
                         type="button"
@@ -132,9 +136,12 @@ export function SubscriptionsScreen({
                         className="flex-1 rounded-lg py-2 text-center text-xs font-semibold text-cyan-300 transition hover:text-cyan-200"
                         style={{ background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.22)' }}
                       >
-                        Підключити
+                        Відкрити Happ
                       </button>
                     </div>
+                    <p className="mt-1.5 text-[0.68rem] text-white/30">
+                      Натисніть «Відкрити Happ» — додаток запуститься автоматично
+                    </p>
                   </div>
                 ) : (
                   <p className="mt-2 text-xs text-amber-300">
