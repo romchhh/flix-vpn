@@ -1,0 +1,380 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(34, 211, 238, 0.06) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(34, 211, 238, 0.35);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.avatarInitials {
+  font-size: 17px;
+  font-weight: 700;
+  color: #22d3ee;
+  letter-spacing: 0.04em;
+}
+
+.userInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.userName {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userTag {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 2px;
+}
+
+.editBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  backdrop-filter: blur(8px);
+}
+
+.editBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Stats */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.statCard {
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.12);
+  backdrop-filter: blur(16px);
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+}
+
+.statLabel {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Sections */
+.section {
+  padding: 4px 16px 0;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  margin-top: 18px;
+}
+
+/* Plan banner */
+.planBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  background: linear-gradient(135deg, rgba(34,211,238,0.12) 0%, rgba(34,211,238,0.05) 100%);
+  box-shadow: 0 4px 20px rgba(34,211,238,0.1), inset 0 1.5px 0 rgba(34,211,238,0.2);
+  backdrop-filter: blur(16px);
+}
+
+.planBannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.planBannerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+}
+
+.planBannerName {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.planBannerExp {
+  display: block;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
+}
+
+.renewBtn {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  border-radius: 10px;
+  padding: 7px 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.renewBtn:hover {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+/* Referral */
+.referralCard {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+  backdrop-filter: blur(20px);
+}
+
+.referralTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.referralIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.referralTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.referralSub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.4;
+}
+
+.referralCodeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.referralCode {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 700;
+  color: #22d3ee;
+  letter-spacing: 0.08em;
+}
+
+.copyBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #22d3ee;
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.copyBtn:hover {
+  background: rgba(34, 211, 238, 0.2);
+}
+
+/* Settings group */
+.settingsGroup {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.1);
+  backdrop-filter: blur(20px);
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.settingRow:last-child {
+  border-bottom: none;
+}
+
+.settingRow:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.settingRow.danger:hover {
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.settingIcon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settingText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settingLabel {
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.danger .settingLabel {
+  color: #fca5a5;
+}
+
+.settingHint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Toggle */
+.toggle {
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.12);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.toggleOn {
+  background: rgba(34, 211, 238, 0.7);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+  border-color: rgba(34, 211, 238, 0.4);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(16px);
+}
+
+.spacer {
+  height: 24px;
+}
+
+.cancelSubscriptionBtn {
+  margin-top: 10px;
+  border: none;
+  background: transparent;
+  color: rgba(248, 113, 113, 0.75);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.cancelSubscriptionBtn:hover {
+  color: rgba(252, 165, 165, 0.95);
+}

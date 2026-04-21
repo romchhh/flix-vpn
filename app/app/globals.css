@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind utilities;
+@tailwind components;
+
+* {
+  font-family: inherit;
+}
+
+body {
+  @apply min-h-screen antialiased;
+  font-size: 17px;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% -10%, rgba(34, 211, 238, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 110%, rgba(59, 130, 246, 0.1) 0%, transparent 55%),
+    linear-gradient(160deg, #030b18 0%, #050d1e 35%, #040b16 65%, #020810 100%);
+}
+
+/* ── Liquid glass ─────────────────────────────────────────────────────────── */
+.lg-card {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Inner panel — slightly darker glass */
+.lg-inner {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+}
+
+/* Cyan-tinted glass (accent panels) */
+.lg-accent {
+  background: linear-gradient(
+    135deg,
+    rgba(34, 211, 238, 0.12) 0%,
+    rgba(34, 211, 238, 0.05) 100%
+  );
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow:
+    0 4px 20px rgba(34, 211, 238, 0.1),
+    inset 0 1.5px 0 rgba(34, 211, 238, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+}
+
+/* Pulsing status dot */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+  50% { opacity: 0.7; box-shadow: 0 0 6px 2px currentColor; }
+}
+.pulse-dot {
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+:focus-visible {
+  outline: 1.5px solid rgba(34, 211, 238, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

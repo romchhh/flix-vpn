@@ -1,0 +1,60 @@
+.card {
+  border: 0.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.card:hover {
+  border-color: #1e40af;
+}
+
+.active {
+  border-color: #a7f3d0;
+  background: #f0fdf4;
+}
+
+.iconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.iconActive {
+  background: #d1fae5;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #111;
+}
+
+.action {
+  font-size: 13px;
+  color: #1e40af;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.actionActive {
+  color: #15803d;
+}

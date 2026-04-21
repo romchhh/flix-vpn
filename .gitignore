@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Databases and runtime state
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+*.db
+*.sqlite
+*.sqlite3
+
+# Node / Next.js
+app/node_modules/
+app/.next/
+app/out/
+app/.turbo/
+app/.vercel/
+app/.env.local
+app/.env.development.local
+app/.env.test.local
+app/.env.production.local
+
+# Python
+bot/.venv/
+bot/venv/
+bot/env/
+bot/__pycache__/
+bot/**/*.pyc
+bot/**/*.pyo
+bot/.pytest_cache/
+bot/.mypy_cache/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

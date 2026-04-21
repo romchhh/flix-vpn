@@ -1,0 +1,150 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.header {
+  padding: 28px 20px 20px;
+  border-bottom: 0.5px solid #e5e7eb;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #111;
+  letter-spacing: -0.3px;
+  margin-bottom: 4px;
+}
+
+.sub {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* Empty state */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  gap: 10px;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.emptyHint {
+  font-size: 13px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+/* Sections */
+.section {
+  padding: 20px 16px 0;
+}
+
+.allPlansSection {
+  padding: 20px 16px 0;
+  border-top: 0.5px solid #e5e7eb;
+  margin-top: 20px;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Plan rows */
+.plans {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.planCardWrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.removeBtn,
+.saveBtn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 0.5px solid #e5e7eb;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.removeBtn:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.saveBtn:hover {
+  background: #eff6ff;
+  border-color: #1e40af;
+}
+
+.saveBtnActive {
+  background: #eff6ff;
+  border-color: #1e40af;
+}
+
+/* CTA */
+.cta {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  background: #1e40af;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: background 0.15s;
+}
+
+.cta:hover {
+  background: #1e3a8a;
+}
+
+.spacer {
+  height: 20px;
+}
