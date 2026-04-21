@@ -1,7 +1,7 @@
 import sqlite3
-from datetime import datetime
 
 from config import DATABASE_PATH
+from utils.time_utils import now_kyiv
 
 conn = sqlite3.connect(DATABASE_PATH)
 cursor = conn.cursor()
