@@ -7,7 +7,7 @@ import {
   getUserIdFromInitData,
   validateInitData,
 } from '@/lib/telegram'
-import { bytesToMb, getDeviceSubLink, getMarzbanUserInfo } from '@/lib/marzban'
+import { bytesToMb, getMarzbanUserInfo } from '@/lib/marzban'
 import { nowKyivIso } from '@/lib/time'
 
 export const runtime = 'nodejs'
@@ -164,9 +164,7 @@ export async function GET(request: NextRequest) {
         return {
           id: row.id,
           name: (row.device_name || '').trim(),
-          subscriptionUrl: row.subscription_url || (marzbanUsername
-            ? getDeviceSubLink(auth.userId, row.id)
-            : null),
+          subscriptionUrl: row.subscription_url || null,
           usedTrafficMb,
         }
       }),

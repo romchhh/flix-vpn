@@ -22,6 +22,14 @@ def _bytes_to_mb(b: int | None) -> float:
     return round(b / 1_048_576, 1)
 
 
+def _build_happ_link(base_url: str, subscription_url: str | None) -> str | None:
+    if not subscription_url:
+        return None
+    if subscription_url.startswith('http://') or subscription_url.startswith('https://'):
+        return f'happ://add/{subscription_url}'
+    return f'happ://add/{base_url}{subscription_url}'
+
+
 class MarzbanAPI:
     def __init__(self, base_url: str, username: str, password: str) -> None:
         self._base_url = base_url.rstrip('/')
@@ -82,7 +90,11 @@ class MarzbanAPI:
         if note:
             payload['note'] = note
         result = self._request('POST', '/api/user', json_body=payload)
-        return result or {}
+        data = result or {}
+        happ_link = _build_happ_link(self._base_url, data.get('subscription_url'))
+        if happ_link:
+            data['happ_link'] = happ_link
+        return data
 
     def disable_device_user(self, user_id: int, device_db_id: int) -> None:
         """Disable (but don't delete) a device's Marzban user."""
@@ -107,7 +119,8 @@ class MarzbanAPI:
 
     def get_device_sub_link(self, user_id: int, device_db_id: int) -> str:
         username = device_marzban_username(user_id, device_db_id)
-        return f'happ://add/{self._base_url}/sub/{username}'
+        user_info = self.get_user_info(username)
+        return _build_happ_link(self._base_url, (user_info or {}).get('subscription_url')) or ''
 
     # ─── Bulk operations ─────────────────────────────────────────────────────
 

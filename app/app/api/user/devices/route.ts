@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
 import Database from 'better-sqlite3'
-import { createDeviceMarzbanUser, getDeviceSubLink } from '@/lib/marzban'
+import { createDeviceMarzbanUser } from '@/lib/marzban'
 import { getUserIdFromInitData, validateInitData } from '@/lib/telegram'
 import { nowKyivIso } from '@/lib/time'
 
@@ -177,9 +177,7 @@ export async function POST(request: NextRequest) {
       id: row.id,
       name: (row.device_name || '').trim(),
       marzbanUsername: row.marzban_username || null,
-      subscriptionUrl: row.subscription_url || (row.marzban_username
-        ? getDeviceSubLink(userId, row.id)
-        : null),
+      subscriptionUrl: row.subscription_url || null,
     }))
 
     return NextResponse.json({ ok: true, activeDevices, devicesCount: activeDevices.length })

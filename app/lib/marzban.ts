@@ -58,9 +58,12 @@ export function deviceMarzbanUsername(userId: number, deviceDbId: number): strin
   return `flix${userId}d${deviceDbId}`
 }
 
-export function getDeviceSubLink(userId: number, deviceDbId: number): string {
-  if (!MARZBAN_URL) return ''
-  return `happ://add/${MARZBAN_URL}/sub/${deviceMarzbanUsername(userId, deviceDbId)}`
+function buildHappLink(subscriptionUrl: string | null | undefined): string | null {
+  if (!subscriptionUrl || !MARZBAN_URL) return null
+  if (subscriptionUrl.startsWith('http://') || subscriptionUrl.startsWith('https://')) {
+    return `happ://add/${subscriptionUrl}`
+  }
+  return `happ://add/${MARZBAN_URL}${subscriptionUrl}`
 }
 
 // ─── Per-device operations ─────────────────────────────────────────────────
@@ -105,7 +108,9 @@ export async function createDeviceMarzbanUser(
     result = await marzbanRequest<MarzbanUserInfo>('GET', `/api/user/${username}`)
   }
   if (!result) return null
-  return { username, subLink: getDeviceSubLink(userId, deviceDbId) }
+  const subLink = buildHappLink(result.subscription_url)
+  if (!subLink) return null
+  return { username, subLink }
 }
 
 export async function disableMarzbanUser(marzbanUsername: string): Promise<void> {
