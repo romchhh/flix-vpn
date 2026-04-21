@@ -26,6 +26,9 @@ export function PlanCard({ plan, selected, onSelect }: Props) {
         {plan.savePct && (
           <span className={styles.save}>–{plan.savePct}%</span>
         )}
+        {plan.months === 1 && (
+          <span className={styles.autopay}>Автоплатіж · автопідписка</span>
+        )}
       </div>
       <div className={styles.right}>
         <span className={styles.price}>{plan.price} грн</span>

@@ -89,3 +89,10 @@
   color: rgba(255, 255, 255, 0.4);
   margin-top: 1px;
 }
+
+.autopay {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(251, 191, 36, 0.95);
+  letter-spacing: 0.02em;
+}

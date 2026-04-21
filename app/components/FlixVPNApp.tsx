@@ -474,6 +474,11 @@ export function FlixVPNApp() {
             onToggleReferralBalance={setApplyReferralBalance}
             onSelectPlan={setSelectedPlan}
             onSubscribe={handleSubscribe}
+            isSubscribed={isSubscribed}
+            subscriptionEnd={subscriptionEnd}
+            recurringEnabled={recurringEnabled}
+            nextRecurringPaymentDate={nextRecurringPaymentDate}
+            onOpenProfile={() => setTab('profile')}
           />
         )
       case 'subscriptions':
