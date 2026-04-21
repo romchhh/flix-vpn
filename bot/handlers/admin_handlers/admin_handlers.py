@@ -47,7 +47,7 @@ def _format_stats_header(stats: dict, section: str, search_query: str) -> str:
     active_title = titles.get(section, titles['users'])
     search_line = f"\n🔎 Фільтр: <code>{html.escape(search_query)}</code>\n" if search_query else ""
     return (
-        "<b>📊 Зручна статистика Flix VPN</b>\n\n"
+        "<b>📊 Cтатистика Flix VPN</b>\n\n"
         f"• Всього користувачів: <b>{stats['total_users']}</b>\n"
         f"• З підписками: <b>{stats['users_with_subscription']}</b>\n"
         f"• Активні зараз: <b>{stats['active_subscriptions']}</b>\n"
