@@ -66,12 +66,16 @@ export function TariffsScreen({
             Зараз немає активної підписки. Оберіть тариф нижче та оформіть доступ.
           </p>
         )}
-        {isSubscribed && activePlanLabel && (
+        {isSubscribed && (
           <div className="mt-3 space-y-2 text-[0.95rem] leading-relaxed text-white/75">
-            <p>
-              <span className="text-white/50">План:</span>{' '}
-              <span className="font-semibold text-cyan-200">{activePlanLabel}</span>
-            </p>
+            {activePlanLabel ? (
+              <p>
+                <span className="text-white/50">План:</span>{' '}
+                <span className="font-semibold text-cyan-200">{activePlanLabel}</span>
+              </p>
+            ) : (
+              <p className="font-medium text-white/85">Підписка активна</p>
+            )}
             {subscriptionEnd && (
               <p>
                 <span className="text-white/50">Активна до:</span>{' '}
@@ -154,7 +158,7 @@ export function TariffsScreen({
         )}
         {isRecurringSelected && (
           <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-500/[0.08] p-4 text-[0.88rem] leading-relaxed">
-            <p className="font-semibold text-amber-200">Важливо:</p>
+            <p className="font-semibold text-amber-200">⚠️ Важливо:</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-white/78">
               <li>Після успішної оплати буде активована автоматична підписка</li>
               <li>Кошти будуть автоматично списуватися кожен місяць</li>
