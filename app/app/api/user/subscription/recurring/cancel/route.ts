@@ -37,14 +37,12 @@ function getAuthorizedUserId(request: NextRequest): number | null {
   return getUserIdFromQuery(request)
 }
 
-function parseAdminIds(): number[] {
-  const raw = (process.env.ADMINISTRATORS || '').trim()
-  if (!raw) return []
-  const normalized = raw.startsWith('[') && raw.endsWith(']') ? raw.slice(1, -1) : raw
-  return normalized
-    .split(',')
-    .map((item) => Number(item.trim()))
-    .filter((id) => Number.isFinite(id) && id > 0)
+function parseTelegramGroupId(): number | null {
+  const raw = (process.env.TELEGRAM_GROUP_ID || '').trim()
+  if (!raw) return null
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value === 0) return null
+  return value
 }
 
 interface TelegramInlineButton {
@@ -111,18 +109,18 @@ export async function POST(request: NextRequest) {
        WHERE user_id = ? AND status = 'active'`,
     ).run(nowIso, nowIso, userId)
 
-    const adminText =
+    const paymentLogText =
       `🔕 Користувач скасував підписку\n` +
       `User ID: <code>${userId}</code>\n` +
       `Час: <code>${nowIso}</code>`
-    const adminUserMarkup: TelegramReplyMarkup = {
+    const paymentLogUserMarkup: TelegramReplyMarkup = {
       inline_keyboard: [
         [{ text: '👤 Переглянути профіль', url: `tg://user?id=${userId}` }],
       ],
     }
-    const adminIds = parseAdminIds()
-    for (const adminId of adminIds) {
-      await sendTelegramMessage(adminId, adminText, adminUserMarkup)
+    const telegramGroupId = parseTelegramGroupId()
+    if (telegramGroupId) {
+      await sendTelegramMessage(telegramGroupId, paymentLogText, paymentLogUserMarkup)
     }
 
     return NextResponse.json({ ok: true, recurringEnabled: false })

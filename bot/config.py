@@ -19,6 +19,11 @@ raw_admins = (getenv('ADMINISTRATORS') or '').strip()
 if raw_admins.startswith('[') and raw_admins.endswith(']'):
     raw_admins = raw_admins[1:-1]
 administrators = [int(admin_id.strip()) for admin_id in raw_admins.split(',') if admin_id.strip()]
+raw_telegram_group_id = (getenv('TELEGRAM_GROUP_ID') or '').strip()
+try:
+    TELEGRAM_GROUP_ID = int(raw_telegram_group_id) if raw_telegram_group_id else None
+except ValueError:
+    TELEGRAM_GROUP_ID = None
 
 MINI_APP_URL = (getenv('MINI_APP_URL') or '').strip()
 SUPPORT_TG_URL = (getenv('SUPPORT_TG_URL') or 'https://t.me/flixvpn_admin').strip()

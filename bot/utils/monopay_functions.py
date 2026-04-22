@@ -11,7 +11,7 @@ from utils.time_utils import now_kyiv
 import requests
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from config import DATABASE_PATH, MARZBAN_PASS, MARZBAN_URL, MARZBAN_USER, MINI_APP_URL, REFERRAL_PERCENT, SUBSCRIPTION_PRICES, XTOKEN, administrators
+from config import DATABASE_PATH, MARZBAN_PASS, MARZBAN_URL, MARZBAN_USER, MINI_APP_URL, REFERRAL_PERCENT, SUBSCRIPTION_PRICES, TELEGRAM_GROUP_ID, XTOKEN
 from utils.marzban import MarzbanAPI
 
 
@@ -169,17 +169,20 @@ def _mini_app_reply_markup(user_id: int) -> InlineKeyboardMarkup | None:
     )
 
 
-async def _notify_admins(
+async def _notify_payment_logs(
     text: str,
     reply_markup: InlineKeyboardMarkup | None = None,
 ) -> None:
     from main import bot
 
-    for admin_id in administrators:
-        try:
-            await bot.send_message(admin_id, text, parse_mode='HTML', reply_markup=reply_markup)
-        except Exception:
-            logger.exception('Failed to notify admin %s', admin_id)
+    if TELEGRAM_GROUP_ID is None:
+        logger.warning('TELEGRAM_GROUP_ID is not configured, payment log skipped')
+        return
+
+    try:
+        await bot.send_message(TELEGRAM_GROUP_ID, text, parse_mode='HTML', reply_markup=reply_markup)
+    except Exception:
+        logger.exception('Failed to notify payment group %s', TELEGRAM_GROUP_ID)
 
 
 def _admin_user_markup(user_id: int) -> InlineKeyboardMarkup:
@@ -494,7 +497,7 @@ async def check_pending_payments() -> None:
                         + (f"🔓 Ви можете користуватися Flix VPN до <b>{_format_date_ua_long(sub_end_date)}</b>\n" if sub_end_date else "")
                         + f"🔄 Наступний платіж: <b>{_format_date_ua_long(next_payment_date)}</b>",
                     )
-                    await _notify_admins(
+                    await _notify_payment_logs(
                         "📌 <b>Recurring активовано</b>\n"
                         f"User: <code>{user_id}</code>\n"
                         f"Invoice: <code>{invoice_id}</code>\n"
@@ -504,7 +507,7 @@ async def check_pending_payments() -> None:
                     )
                 else:
                     conn.commit()
-                    await _notify_admins(
+                    await _notify_payment_logs(
                         "⚠️ <b>Оплата успішна, але токен картки не знайдено</b>\n"
                         f"User: <code>{user_id}</code>\nInvoice: <code>{invoice_id}</code>",
                         reply_markup=_admin_user_markup(user_id),
@@ -512,7 +515,7 @@ async def check_pending_payments() -> None:
             elif _is_failed_status(status):
                 _update_payment_status(conn, payment_id, status, last_error='Initial subscription payment failed')
                 conn.commit()
-                await _notify_admins(
+                await _notify_payment_logs(
                     "❌ <b>Платіж підписки не пройшов</b>\n"
                     f"User: <code>{user_id}</code>\nInvoice: <code>{invoice_id}</code>\nStatus: <b>{status}</b>",
                     reply_markup=_admin_user_markup(user_id),
@@ -567,7 +570,7 @@ async def process_recurring_payments() -> None:
                     + "Будь ласка, оновіть підписку вручну в Mini App.",
                     reply_markup=_mini_app_reply_markup(sub.user_id),
                 )
-                await _notify_admins(
+                await _notify_payment_logs(
                     "⚠️ <b>Recurring: токен картки відсутній</b>\n"
                     f"User ID: <code>{sub.user_id}</code>\n"
                     "Підписку не деактивовано — автосписання просто вимкнено.",
@@ -611,7 +614,7 @@ async def process_recurring_payments() -> None:
                         "Щоб відновити — оформіть нову підписку в Mini App.",
                         reply_markup=_mini_app_reply_markup(sub.user_id),
                     )
-                    await _notify_admins(
+                    await _notify_payment_logs(
                         "🛑 <b>Recurring скасовано (помилка створення платежу)</b>\n"
                         f"User ID: <code>{sub.user_id}</code>\n"
                         f"Токен: <code>{sub.card_token or '—'}</code>\n"
@@ -640,7 +643,7 @@ async def process_recurring_payments() -> None:
                         + (f"🔓 Ви можете користуватися Flix VPN до <b>{_format_date_ua_long(_retry1_end)}</b>\n\n" if _retry1_end else "\n")
                         + "Переконайтеся, що на картці є кошти, щоб ми не скасували підписку.",
                     )
-                    await _notify_admins(
+                    await _notify_payment_logs(
                         "⚠️ <b>Recurring: помилка створення платежу</b>\n"
                         f"User ID: <code>{sub.user_id}</code>\n"
                         f"Токен: <code>{sub.card_token or '—'}</code>\n"
@@ -761,7 +764,7 @@ async def process_recurring_payments() -> None:
                     f"💰 Сума: <b>{sub.price:.2f} грн</b>\n"
                     f"🔄 Наступне списання: <b>{_format_date_ua_long(next_charge_date)}</b>",
                 )
-                await _notify_admins(
+                await _notify_payment_logs(
                     "✅ <b>Recurring: списання успішне</b>\n"
                     f"User ID: <code>{sub.user_id}</code>\n"
                     f"Токен: <code>{sub.card_token}</code>\n"
@@ -802,7 +805,7 @@ async def process_recurring_payments() -> None:
                         "Щоб відновити — оформіть нову підписку в Mini App.",
                         reply_markup=_mini_app_reply_markup(sub.user_id),
                     )
-                    await _notify_admins(
+                    await _notify_payment_logs(
                         "🛑 <b>Recurring скасовано (невдалі списання)</b>\n"
                         f"User ID: <code>{sub.user_id}</code>\n"
                         f"Токен: <code>{sub.card_token or '—'}</code>\n"
@@ -831,7 +834,7 @@ async def process_recurring_payments() -> None:
                         + (f"🔓 Ви можете користуватися Flix VPN до <b>{_format_date_ua_long(_retry2_end)}</b>\n\n" if _retry2_end else "\n")
                         + "Переконайтеся, що на картці є кошти, щоб ми не скасували підписку.",
                     )
-                    await _notify_admins(
+                    await _notify_payment_logs(
                         "⚠️ <b>Recurring: невдале списання</b>\n"
                         f"User ID: <code>{sub.user_id}</code>\n"
                         f"Токен: <code>{sub.card_token or '—'}</code>\n"

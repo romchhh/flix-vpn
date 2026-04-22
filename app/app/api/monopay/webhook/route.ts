@@ -68,14 +68,12 @@ function openDb() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function parseAdminIds(): number[] {
-  const raw = (process.env.ADMINISTRATORS || '').trim()
-  if (!raw) return []
-  const normalized = raw.startsWith('[') && raw.endsWith(']') ? raw.slice(1, -1) : raw
-  return normalized
-    .split(',')
-    .map((item) => Number(item.trim()))
-    .filter((id) => Number.isFinite(id) && id > 0)
+function parseTelegramGroupId(): number | null {
+  const raw = (process.env.TELEGRAM_GROUP_ID || '').trim()
+  if (!raw) return null
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value === 0) return null
+  return value
 }
 
 function buildMiniAppUrl(userId: number): string {
@@ -461,8 +459,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Admin notification ────────────────────────────────────────────────────
-    const adminText =
+    // ── Payment log notification ──────────────────────────────────────────────
+    const paymentLogText =
       `💳 Нова успішна оплата\n` +
       `User ID: <code>${payment.user_id}</code>\n` +
       `План: ${payment.months} міс.\n` +
@@ -472,16 +470,18 @@ export async function POST(request: NextRequest) {
         ? `\nТокен: <code>${recurringCardToken || 'не отримано'}</code>`
         : '')
 
-    const adminUserMarkup: TelegramReplyMarkup = {
+    const paymentUserMarkup: TelegramReplyMarkup = {
       inline_keyboard: [
         [{ text: '👤 Переглянути профіль', url: `tg://user?id=${payment.user_id}` }],
       ],
     }
 
-    const adminIds = parseAdminIds()
-    log('info', 'Sending admin notifications', { adminIds, invoiceId })
-    for (const adminId of adminIds) {
-      await sendTelegramMessage(adminId, adminText, adminUserMarkup)
+    const telegramGroupId = parseTelegramGroupId()
+    if (telegramGroupId) {
+      log('info', 'Sending payment log to telegram group', { telegramGroupId, invoiceId })
+      await sendTelegramMessage(telegramGroupId, paymentLogText, paymentUserMarkup)
+    } else {
+      log('warn', 'TELEGRAM_GROUP_ID is not configured, payment log notification skipped', { invoiceId })
     }
 
     log('info', 'Webhook processed successfully', { invoiceId, userId: payment.user_id })
