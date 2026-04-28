@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { buildReferralShareText } from '../lib/referrals'
-import { OS_INSTALL_OPTIONS, PLANS, type OsId, type Plan } from '../types'
+import { OS_INSTALL_OPTIONS, type OsId, type Plan } from '../types'
 import { HomeScreen } from './HomeScreen'
 import { TariffsScreen } from './TariffsScreen'
 import { SubscriptionsScreen } from './SubscriptionsScreen'
@@ -60,6 +60,10 @@ interface LoadedProfile {
       canCancel: boolean
       walletId: string | null
     }
+  }
+  pricing?: {
+    discountPercent: number
+    priceByMonths: Record<number, number>
   }
 }
 
@@ -155,6 +159,29 @@ function formatDateUaLong(dateInput: string | Date): string {
   return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()} року`
 }
 
+function buildPlans(priceByMonths: Record<number, number>, globalDiscountPercent: number): Plan[] {
+  const oneMonthPrice = priceByMonths[1] ?? 99
+  const safeDiscount = Math.max(0, Math.min(90, globalDiscountPercent))
+  const toMoney = (v: number) => Number(v.toFixed(2))
+  const discounted = (base: number) => toMoney(base * (1 - safeDiscount / 100))
+  const perMonth = (total: number, months: number) => Math.max(1, Math.round(total / months))
+  const calcSavePct = (total: number, months: number) => {
+    if (months === 1 || oneMonthPrice <= 0) return null
+    const pct = Math.round((1 - (total / months) / oneMonthPrice) * 100)
+    return pct > 0 ? pct : 0
+  }
+  const p1 = discounted(oneMonthPrice)
+  const p3 = discounted(priceByMonths[3] ?? 200)
+  const p6 = discounted(priceByMonths[6] ?? 350)
+  const p12 = discounted(priceByMonths[12] ?? 600)
+  return [
+    { id: '1m', label: '1 місяць', months: 1, originalPrice: oneMonthPrice, price: p1, perMonth: perMonth(p1, 1), savePct: null, best: false },
+    { id: '3m', label: '3 місяці', months: 3, originalPrice: priceByMonths[3] ?? 200, price: p3, perMonth: perMonth(p3, 3), savePct: calcSavePct(p3, 3), best: false },
+    { id: '6m', label: '6 місяців', months: 6, originalPrice: priceByMonths[6] ?? 350, price: p6, perMonth: perMonth(p6, 6), savePct: calcSavePct(p6, 6), best: true },
+    { id: '12m', label: '12 місяців', months: 12, originalPrice: priceByMonths[12] ?? 600, price: p12, perMonth: perMonth(p12, 12), savePct: calcSavePct(p12, 12), best: false },
+  ]
+}
+
 export function FlixVPNApp() {
   const MAX_ACTIVE_DEVICES = 5
   const [tab, setTab] = useState<Tab>('home')
@@ -177,19 +204,26 @@ export function FlixVPNApp() {
   const [telegramInitData, setTelegramInitData] = useState('')
   const [resolvedUserId, setResolvedUserId] = useState<number | null>(null)
   const [telegramUserId, setTelegramUserId] = useState<number | null>(null)
+  const [globalDiscountPercent, setGlobalDiscountPercent] = useState(0)
+  const [basePriceByMonths, setBasePriceByMonths] = useState<Record<number, number>>({
+    1: 99,
+    3: 200,
+    6: 350,
+    12: 600,
+  })
 
   const safeUserId = telegramUserId ?? resolvedUserId ?? 0
   const botName = (process.env.NEXT_PUBLIC_BOT_USERNAME || 'flixvpnbot').replace('@', '')
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_TG_URL || 'https://t.me/flixvpn_admin'
 
+  const dynamicPlans = buildPlans(basePriceByMonths, globalDiscountPercent)
   const isSubscribed = activePlan !== null
-  const activePlanData = PLANS.find((plan) => plan.id === activePlan)
 
   const handleSubscribe = async () => {
     if (!telegramInitData && !safeUserId) {
       return
     }
-    const planData = PLANS.find((plan) => plan.id === selectedPlan)
+    const planData = dynamicPlans.find((plan) => plan.id === selectedPlan)
     if (!planData) {
       return
     }
@@ -415,7 +449,7 @@ export function FlixVPNApp() {
         setResolvedUserId(Number(data.userId || resolvedInitialUserId || 0) || null)
         if (data.subscription?.active && data.subscription?.months) {
           const planId = `${data.subscription.months}m` as Plan['id']
-          if (PLANS.some((p) => p.id === planId)) {
+          if (dynamicPlans.some((p) => p.id === planId)) {
             setActivePlan(planId)
             setSelectedPlan(planId)
           }
@@ -425,6 +459,15 @@ export function FlixVPNApp() {
         if (data.subscription?.endDate) {
           setSubscriptionEnd(formatDateUaLong(data.subscription.endDate))
         }
+        if (data.pricing?.priceByMonths) {
+          setBasePriceByMonths({
+            1: Number(data.pricing.priceByMonths[1] || 99),
+            3: Number(data.pricing.priceByMonths[3] || 200),
+            6: Number(data.pricing.priceByMonths[6] || 350),
+            12: Number(data.pricing.priceByMonths[12] || 600),
+          })
+        }
+        setGlobalDiscountPercent(Number(data.pricing?.discountPercent || 0))
         const recurring = data.subscription?.recurring
         setRecurringEnabled(Boolean(recurring?.enabled))
         if (recurring?.nextPaymentDate) {
@@ -467,10 +510,12 @@ export function FlixVPNApp() {
       case 'tariffs':
         return (
           <TariffsScreen
+            plans={dynamicPlans}
             selectedPlan={selectedPlan}
             activePlan={activePlan}
             referralBalance={referralBalance}
             applyReferralBalance={applyReferralBalance}
+            globalDiscountPercent={globalDiscountPercent}
             onToggleReferralBalance={setApplyReferralBalance}
             onSelectPlan={setSelectedPlan}
             onSubscribe={handleSubscribe}

@@ -1,5 +1,5 @@
 from aiogram import F, Router, types
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
 from main import bot
 from utils.filters import IsAdmin
 from aiogram.fsm.context import FSMContext
@@ -7,8 +7,15 @@ from keyboards.client_keyboards import get_start_keyboard
 from keyboards.admin_keyboards import admin_keyboard, get_stats_keyboard
 from Content.texts import get_greeting_message
 from utils.admin_functions import generate_database_export
-from database_functions.admin_db import get_subscription_stats, get_subscription_users_page
-from states.admin_states import StatisticsStates
+from database_functions.admin_db import (
+    get_subscription_discount_percent,
+    get_subscription_prices,
+    get_subscription_stats,
+    get_subscription_users_page,
+    set_subscription_price,
+    set_subscription_discount_percent,
+)
+from states.admin_states import DiscountStates, PriceStates, StatisticsStates
 from datetime import datetime
 import os
 import html
@@ -17,6 +24,43 @@ from utils.time_utils import now_kyiv
 
 router = Router()
 STATS_PAGE_SIZE = 8
+
+
+def get_discount_keyboard() -> InlineKeyboardMarkup:
+    prices = get_subscription_prices()
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"1 міс. — {prices[1]:.2f} грн", callback_data="price_edit_1")],
+            [InlineKeyboardButton(text=f"3 міс. — {prices[3]:.2f} грн", callback_data="price_edit_3")],
+            [InlineKeyboardButton(text=f"6 міс. — {prices[6]:.2f} грн", callback_data="price_edit_6")],
+            [InlineKeyboardButton(text=f"12 міс. — {prices[12]:.2f} грн", callback_data="price_edit_12")],
+            [
+                InlineKeyboardButton(text="10%", callback_data="discount_set_10"),
+                InlineKeyboardButton(text="15%", callback_data="discount_set_15"),
+                InlineKeyboardButton(text="20%", callback_data="discount_set_20"),
+            ],
+            [InlineKeyboardButton(text="❌ Прибрати знижку", callback_data="discount_set_0")],
+            [InlineKeyboardButton(text="✏️ Ввести знижку вручну", callback_data="discount_set_custom")],
+        ]
+    )
+
+
+def _discount_text() -> str:
+    discount = get_subscription_discount_percent()
+    prices = get_subscription_prices()
+    sample = prices[1]
+    discounted_sample = round(sample * (1 - discount / 100), 2)
+    return (
+        "<b>💰 Ціни та знижка</b>\n\n"
+        "<b>Поточні ціни:</b>\n"
+        f"• 1 міс.: <b>{prices[1]:.2f} грн</b>\n"
+        f"• 3 міс.: <b>{prices[3]:.2f} грн</b>\n"
+        f"• 6 міс.: <b>{prices[6]:.2f} грн</b>\n"
+        f"• 12 міс.: <b>{prices[12]:.2f} грн</b>\n\n"
+        f"Поточна знижка: <b>{discount:.0f}%</b>\n\n"
+        f"Приклад для 1 міс.: <b>{sample:.2f}</b> → <b>{discounted_sample:.2f} грн</b>\n\n"
+        "Застосовується до всіх тарифів (1/3/6/12 міс.) для нових оплат."
+    )
 
 
 @router.message(IsAdmin(), F.text.in_(["👨‍💻 Адмін панель", "Адмін панель 💻", "/admin"]))
@@ -36,6 +80,111 @@ async def my_parcel(message: types.Message, state: FSMContext):
 @router.message(IsAdmin(), F.text.in_(["Статистика"]))
 async def statistic_handler(message: types.Message):
     await stateful_render_stats(message, state=None, section='users', page=1, search_query='')
+
+
+@router.message(IsAdmin(), F.text.in_(["Ціни підписок", "Знижки"]))
+async def discounts_handler(message: types.Message):
+    await message.answer(
+        _discount_text(),
+        parse_mode='HTML',
+        reply_markup=get_discount_keyboard(),
+    )
+
+
+@router.callback_query(IsAdmin(), F.data.startswith("discount_set_"))
+async def discount_callback(callback: types.CallbackQuery, state: FSMContext):
+    value = callback.data[len("discount_set_"):]
+    if value == "custom":
+        await state.set_state(DiscountStates.waiting_for_discount_percent)
+        await callback.message.answer(
+            "Введіть відсоток знижки від 0 до 90.\n"
+            "Приклад: <code>12.5</code> або <code>20</code>.",
+            parse_mode='HTML',
+        )
+        await callback.answer()
+        return
+
+    if not value.isdigit():
+        await callback.answer("Некоректне значення", show_alert=True)
+        return
+
+    updated = set_subscription_discount_percent(float(value))
+    await callback.message.edit_text(
+        _discount_text() + f"\n\n✅ Оновлено: <b>{updated:.0f}%</b>",
+        parse_mode='HTML',
+        reply_markup=get_discount_keyboard(),
+    )
+    await callback.answer("Знижку оновлено")
+
+
+@router.callback_query(IsAdmin(), F.data.startswith("price_edit_"))
+async def price_edit_callback(callback: types.CallbackQuery, state: FSMContext):
+    raw_months = callback.data[len("price_edit_"):]
+    if not raw_months.isdigit():
+        await callback.answer("Некоректний тариф", show_alert=True)
+        return
+    months = int(raw_months)
+    if months not in (1, 3, 6, 12):
+        await callback.answer("Некоректний тариф", show_alert=True)
+        return
+    prices = get_subscription_prices()
+    await state.set_state(PriceStates.waiting_for_price_value)
+    await state.update_data(price_edit_months=months)
+    await callback.message.answer(
+        f"Введіть нову ціну для тарифу <b>{months} міс.</b>\n"
+        f"Поточна ціна: <b>{prices[months]:.2f} грн</b>\n\n"
+        "Приклад: <code>249</code> або <code>249.99</code>",
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.message(IsAdmin(), DiscountStates.waiting_for_discount_percent)
+async def discount_custom_input(message: types.Message, state: FSMContext):
+    raw = (message.text or "").strip().replace(",", ".")
+    try:
+        value = float(raw)
+    except ValueError:
+        await message.answer("Вкажіть число від 0 до 90.")
+        return
+
+    if value < 0 or value > 90:
+        await message.answer("Значення має бути в межах від 0 до 90.")
+        return
+
+    updated = set_subscription_discount_percent(value)
+    await state.clear()
+    await message.answer(
+        _discount_text() + f"\n\n✅ Оновлено: <b>{updated:.2f}%</b>",
+        parse_mode='HTML',
+        reply_markup=get_discount_keyboard(),
+    )
+
+
+@router.message(IsAdmin(), PriceStates.waiting_for_price_value)
+async def price_custom_input(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    months = int(data.get("price_edit_months") or 0)
+    if months not in (1, 3, 6, 12):
+        await state.clear()
+        await message.answer("Не вдалося визначити тариф. Спробуйте ще раз через меню.")
+        return
+    raw = (message.text or "").strip().replace(",", ".")
+    try:
+        value = float(raw)
+    except ValueError:
+        await message.answer("Вкажіть коректну ціну числом.")
+        return
+    if value <= 0:
+        await message.answer("Ціна має бути більшою за 0.")
+        return
+    updated = set_subscription_price(months, value)
+    await state.clear()
+    await message.answer(
+        _discount_text() + f"\n\n✅ Ціну для <b>{months} міс.</b> оновлено до <b>{updated:.2f} грн</b>",
+        parse_mode="HTML",
+        reply_markup=get_discount_keyboard(),
+    )
 
 
 def _format_stats_header(stats: dict, section: str, search_query: str) -> str:

@@ -8,6 +8,7 @@ def admin_keyboard() -> ReplyKeyboardMarkup:
     keyboard = [
         [KeyboardButton(text="Розсилка") ,KeyboardButton(text="Статистика")], 
         [KeyboardButton(text="Адміністратори"), KeyboardButton(text="Посилання")],
+        [KeyboardButton(text="Ціни підписок")],
         [KeyboardButton(text="Головне меню")] 
     ]
 

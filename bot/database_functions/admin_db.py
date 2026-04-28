@@ -285,6 +285,83 @@ def get_all_administrators():
     return get_all_admin_ids()
 
 
+def get_subscription_discount_percent() -> float:
+    try:
+        cursor.execute(
+            "SELECT value FROM app_settings WHERE key = 'subscription_discount_percent' LIMIT 1"
+        )
+        row = cursor.fetchone()
+        if not row:
+            return 0.0
+        value = float(row[0])
+        if value < 0:
+            return 0.0
+        if value > 90:
+            return 90.0
+        return value
+    except Exception:
+        return 0.0
+
+
+def set_subscription_discount_percent(percent: float) -> float:
+    safe_percent = max(0.0, min(90.0, float(percent)))
+    cursor.execute(
+        """
+        INSERT INTO app_settings (key, value)
+        VALUES ('subscription_discount_percent', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """,
+        (str(round(safe_percent, 2)),),
+    )
+    conn.commit()
+    return safe_percent
+
+
+def get_subscription_prices() -> dict[int, float]:
+    defaults = {1: 99.0, 3: 200.0, 6: 350.0, 12: 600.0}
+    result = defaults.copy()
+    try:
+        cursor.execute(
+            """
+            SELECT key, value
+            FROM app_settings
+            WHERE key IN (
+                'subscription_price_1',
+                'subscription_price_3',
+                'subscription_price_6',
+                'subscription_price_12'
+            )
+            """
+        )
+        for key, value in cursor.fetchall():
+            month_raw = key.rsplit('_', 1)[-1]
+            if not str(month_raw).isdigit():
+                continue
+            months = int(month_raw)
+            parsed = float(value)
+            if months in result and parsed > 0:
+                result[months] = round(parsed, 2)
+    except Exception:
+        return result
+    return result
+
+
+def set_subscription_price(months: int, price: float) -> float:
+    if months not in (1, 3, 6, 12):
+        raise ValueError("Unsupported subscription duration")
+    safe_price = round(max(1.0, float(price)), 2)
+    cursor.execute(
+        """
+        INSERT INTO app_settings (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """,
+        (f"subscription_price_{months}", str(safe_price)),
+    )
+    conn.commit()
+    return safe_price
+
+
 def _parse_subscription_end_date(raw_value: str | None) -> datetime | None:
     if not raw_value:
         return None

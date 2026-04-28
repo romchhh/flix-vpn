@@ -31,7 +31,12 @@ export function PlanCard({ plan, selected, onSelect }: Props) {
         )}
       </div>
       <div className={styles.right}>
-        <span className={styles.price}>{plan.price} грн</span>
+        {plan.originalPrice && plan.originalPrice > plan.price && (
+          <span className={styles.per} style={{ textDecoration: 'line-through', opacity: 0.75 }}>
+            {plan.originalPrice.toFixed(2)} грн
+          </span>
+        )}
+        <span className={styles.price}>{plan.price.toFixed(2)} грн</span>
         <span className={styles.per}>{plan.perMonth} / міс</span>
       </div>
     </button>

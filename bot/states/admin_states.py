@@ -23,6 +23,14 @@ class StatisticsStates(StatesGroup):
     waiting_for_search_query = State()
 
 
+class DiscountStates(StatesGroup):
+    waiting_for_discount_percent = State()
+
+
+class PriceStates(StatesGroup):
+    waiting_for_price_value = State()
+
+
 class MenuEdit(StatesGroup):
     content = State()
     media = State()

@@ -9,6 +9,7 @@ import {
 } from '@/lib/telegram'
 import { bytesToMb, getMarzbanUserInfo } from '@/lib/marzban'
 import { nowKyivIso } from '@/lib/time'
+import { SITE_PLAN_PRICE_BY_MONTHS } from '@/config/subscriptions'
 
 export const runtime = 'nodejs'
 
@@ -60,6 +61,15 @@ export async function GET(request: NextRequest) {
 
   const db = openDb()
   try {
+    const getSettingNumber = (key: string, fallback: number): number => {
+      try {
+        const row = db.prepare('SELECT value FROM app_settings WHERE key = ? LIMIT 1').get(key) as { value?: string | number } | undefined
+        const parsed = Number(row?.value ?? fallback)
+        return Number.isFinite(parsed) ? parsed : fallback
+      } catch {
+        return fallback
+      }
+    }
     const nowIso = nowKyivIso()
     const exists = db
       .prepare('SELECT user_id FROM users WHERE user_id = ?')
@@ -173,6 +183,14 @@ export async function GET(request: NextRequest) {
     const devicesCount = activeDevices.length
     const recurringEnabled = subscriptionActive && Boolean(user?.recurring_enabled ?? 0)
     const nextPaymentDate = recurringEnabled ? (user?.subscription_end_date || null) : null
+    const discountPercentRaw = getSettingNumber('subscription_discount_percent', 0)
+    const discountPercent = Math.max(0, Math.min(90, discountPercentRaw))
+    const priceByMonths: Record<number, number> = {
+      1: getSettingNumber('subscription_price_1', SITE_PLAN_PRICE_BY_MONTHS[1] ?? 99),
+      3: getSettingNumber('subscription_price_3', SITE_PLAN_PRICE_BY_MONTHS[3] ?? 200),
+      6: getSettingNumber('subscription_price_6', SITE_PLAN_PRICE_BY_MONTHS[6] ?? 350),
+      12: getSettingNumber('subscription_price_12', SITE_PLAN_PRICE_BY_MONTHS[12] ?? 600),
+    }
 
     return NextResponse.json({
       userId: auth.userId,
@@ -196,6 +214,10 @@ export async function GET(request: NextRequest) {
           canCancel: recurringEnabled,
           walletId: user?.recurring_wallet_id || null,
         },
+      },
+      pricing: {
+        discountPercent,
+        priceByMonths,
       },
     })
   } finally {

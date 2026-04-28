@@ -1,12 +1,33 @@
 import sqlite3
 
 from config import DATABASE_PATH
+from config import SUBSCRIPTION_PRICES
 
 conn = sqlite3.connect(DATABASE_PATH)
 cursor = conn.cursor()
 
 
 def create_subscriptions_tables():
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO app_settings (key, value)
+        VALUES ('subscription_discount_percent', '0')
+        """
+    )
+    for months in (1, 3, 6, 12):
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO app_settings (key, value)
+            VALUES (?, ?)
+            """,
+            (f"subscription_price_{months}", str(float(SUBSCRIPTION_PRICES.get(months, 0.0)))),
+        )
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS subscriptions (
             id INTEGER PRIMARY KEY,

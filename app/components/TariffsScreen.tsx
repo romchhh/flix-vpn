@@ -1,14 +1,16 @@
 'use client'
 
 import { useRef } from 'react'
-import { PLANS, type Plan } from '../types'
+import type { Plan } from '../types'
 import { PlanCard } from './PlanCard'
 
 interface TariffsScreenProps {
+  plans: Plan[]
   selectedPlan: Plan['id']
   activePlan: Plan['id'] | null
   referralBalance: number
   applyReferralBalance: boolean
+  globalDiscountPercent: number
   onToggleReferralBalance: (enabled: boolean) => void
   onSelectPlan: (planId: Plan['id']) => void
   onSubscribe: () => void
@@ -20,10 +22,12 @@ interface TariffsScreenProps {
 }
 
 export function TariffsScreen({
+  plans,
   selectedPlan,
   activePlan,
   referralBalance,
   applyReferralBalance,
+  globalDiscountPercent,
   onToggleReferralBalance,
   onSelectPlan,
   onSubscribe,
@@ -34,11 +38,11 @@ export function TariffsScreen({
   onOpenProfile,
 }: TariffsScreenProps) {
   const paymentSectionRef = useRef<HTMLElement | null>(null)
-  const selected = PLANS.find((plan) => plan.id === selectedPlan)
+  const selected = plans.find((plan) => plan.id === selectedPlan)
   const discountApplied = applyReferralBalance ? Math.min(selected?.price || 0, referralBalance) : 0
   const finalPrice = Math.max(0, (selected?.price || 0) - discountApplied)
   const isRecurringSelected = (selected?.months ?? 0) === 1
-  const activePlanLabel = activePlan ? PLANS.find((plan) => plan.id === activePlan)?.label : null
+  const activePlanLabel = activePlan ? plans.find((plan) => plan.id === activePlan)?.label : null
 
   const handleSelectPlan = (planId: Plan['id']) => {
     onSelectPlan(planId)
@@ -118,7 +122,7 @@ export function TariffsScreen({
 
       {/* Plans */}
       <section className="lg-card space-y-2 rounded-3xl p-5">
-        {PLANS.map((plan) => (
+        {plans.map((plan) => (
           <PlanCard
             key={plan.id}
             plan={plan}
@@ -151,9 +155,14 @@ export function TariffsScreen({
             </div>
           </label>
         )}
+        {globalDiscountPercent > 0 && (
+          <p className="mt-2 text-[0.83rem] font-medium text-emerald-300">
+            🎉 Зараз діє глобальна знижка <span className="font-bold">{globalDiscountPercent}%</span> на всі тарифи
+          </p>
+        )}
         {activePlan && (
           <p className="mt-2 text-sm text-emerald-400">
-            Активний зараз: {PLANS.find((plan) => plan.id === activePlan)?.label}
+            Активний зараз: {plans.find((plan) => plan.id === activePlan)?.label}
           </p>
         )}
         {isRecurringSelected && (

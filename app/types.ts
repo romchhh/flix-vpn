@@ -8,6 +8,7 @@ export interface Plan {
   label: string
   months: number
   price: number
+  originalPrice?: number
   perMonth: number
   savePct: number | null
   best: boolean

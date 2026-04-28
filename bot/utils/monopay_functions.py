@@ -130,6 +130,46 @@ def _price_by_months(months: int) -> float:
     return float(SUBSCRIPTION_PRICES.get(months, 0.0))
 
 
+def _base_price_by_months(conn: sqlite3.Connection, months: int) -> float:
+    fallback = _price_by_months(months)
+    try:
+        row = conn.execute(
+            "SELECT value FROM app_settings WHERE key = ? LIMIT 1",
+            (f"subscription_price_{months}",),
+        ).fetchone()
+        if not row:
+            return fallback
+        parsed = float(row[0])
+        return parsed if parsed > 0 else fallback
+    except Exception:
+        return fallback
+
+
+def _global_discount_percent(conn: sqlite3.Connection) -> float:
+    try:
+        row = conn.execute(
+            "SELECT value FROM app_settings WHERE key = 'subscription_discount_percent' LIMIT 1"
+        ).fetchone()
+        if not row:
+            return 0.0
+        value = float(row[0])
+        if value < 0:
+            return 0.0
+        if value > 90:
+            return 90.0
+        return value
+    except Exception:
+        return 0.0
+
+
+def _discounted_price_by_months(conn: sqlite3.Connection, months: int, fallback: float) -> float:
+    base = _base_price_by_months(conn, months)
+    if base <= 0:
+        return float(fallback or 0.0)
+    discount = _global_discount_percent(conn)
+    return round(base * (1 - discount / 100), 2)
+
+
 async def _notify_user(
     user_id: int,
     text: str,
@@ -532,6 +572,7 @@ async def process_recurring_payments() -> None:
     try:
         due_subscriptions = _load_due_recurring_subscriptions(conn)
         for sub in due_subscriptions:
+            charge_amount = _discounted_price_by_months(conn, sub.months, sub.price)
             if not sub.card_token or not sub.wallet_id:
                 conn.execute(
                     """
@@ -584,7 +625,7 @@ async def process_recurring_payments() -> None:
                     sub.card_token,
                     'Flix VPN',
                     sub.months,
-                    sub.price,
+                    charge_amount,
                 )
             except Exception as err:
                 fail_count = sub.fail_count + 1
@@ -661,7 +702,7 @@ async def process_recurring_payments() -> None:
                 invoice_id=invoice_id,
                 wallet_id=sub.wallet_id,
                 months=sub.months,
-                price=sub.price,
+                price=charge_amount,
                 mode='recurring_charge',
                 status='created',
             )
@@ -738,13 +779,14 @@ async def process_recurring_payments() -> None:
                     """
                     UPDATE recurring_subscriptions
                     SET fail_count = 0,
+                        price = ?,
                         next_payment_date = ?,
                         updated_at = ?,
                         status = 'active',
                         last_error = NULL
                     WHERE id = ?
                     """,
-                    (next_charge_date, _iso(), sub.id),
+                    (charge_amount, next_charge_date, _iso(), sub.id),
                 )
                 conn.commit()
 
@@ -761,14 +803,14 @@ async def process_recurring_payments() -> None:
                     sub.user_id,
                     "✅ <b>Підписку успішно продовжено</b>\n\n"
                     f"🔓 Ви можете користуватися Flix VPN до <b>{_format_date_ua_long(next_end_date)}</b>\n\n"
-                    f"💰 Сума: <b>{sub.price:.2f} грн</b>\n"
+                    f"💰 Сума: <b>{charge_amount:.2f} грн</b>\n"
                     f"🔄 Наступне списання: <b>{_format_date_ua_long(next_charge_date)}</b>",
                 )
                 await _notify_payment_logs(
                     "✅ <b>Recurring: списання успішне</b>\n"
                     f"User ID: <code>{sub.user_id}</code>\n"
                     f"Токен: <code>{sub.card_token}</code>\n"
-                    f"Сума: <b>{sub.price:.2f} грн</b>\n"
+                    f"Сума: <b>{charge_amount:.2f} грн</b>\n"
                     f"Invoice: <code>{invoice_id}</code>\n"
                     f"Активна до: {_format_date_ua_long(next_end_date)}",
                     reply_markup=_admin_user_markup(sub.user_id),

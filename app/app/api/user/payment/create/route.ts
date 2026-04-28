@@ -45,6 +45,42 @@ function openDb() {
   return new Database(dbPath)
 }
 
+function getSubscriptionDiscountPercent(db: ReturnType<typeof openDb>): number {
+  try {
+    const row = db.prepare(
+      `SELECT value
+       FROM app_settings
+       WHERE key = 'subscription_discount_percent'
+       LIMIT 1`,
+    ).get() as { value?: string | number } | undefined
+    const parsed = Number(row?.value ?? 0)
+    if (!Number.isFinite(parsed)) return 0
+    if (parsed < 0) return 0
+    if (parsed > 90) return 90
+    return parsed
+  } catch {
+    return 0
+  }
+}
+
+function getSubscriptionBasePrice(db: ReturnType<typeof openDb>, months: number): number {
+  try {
+    const row = db.prepare(
+      `SELECT value
+       FROM app_settings
+       WHERE key = ?
+       LIMIT 1`,
+    ).get(`subscription_price_${months}`) as { value?: string | number } | undefined
+    const parsed = Number(row?.value ?? 0)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed
+    }
+    return SITE_PLAN_PRICE_BY_MONTHS[months] ?? 0
+  } catch {
+    return SITE_PLAN_PRICE_BY_MONTHS[months] ?? 0
+  }
+}
+
 function getUserIdFromQuery(request: NextRequest): number | null {
   const rawUserId = request.nextUrl.searchParams.get('user_id')
   if (!rawUserId) {
@@ -75,11 +111,10 @@ export async function POST(request: NextRequest) {
     applyReferralBalance?: boolean
   }
   const months = Number(body.months || 0)
-  const basePrice = SITE_PLAN_PRICE_BY_MONTHS[months] ?? 0
   const productName = (body.productName || 'Flix VPN').toString()
   const applyReferralBalance = Boolean(body.applyReferralBalance)
 
-  if (![1, 3, 6, 12].includes(months) || basePrice <= 0) {
+  if (![1, 3, 6, 12].includes(months)) {
     return NextResponse.json({ error: 'Invalid payment payload' }, { status: 400 })
   }
 
@@ -87,6 +122,12 @@ export async function POST(request: NextRequest) {
   let db: ReturnType<typeof openDb> | null = null
   try {
     db = openDb()
+    const defaultBasePrice = getSubscriptionBasePrice(db, months)
+    if (defaultBasePrice <= 0) {
+      return NextResponse.json({ error: 'Invalid payment payload' }, { status: 400 })
+    }
+    const globalDiscountPercent = getSubscriptionDiscountPercent(db)
+    const basePrice = Number((defaultBasePrice * (1 - globalDiscountPercent / 100)).toFixed(2))
     const user = db.prepare(
       `SELECT
          COALESCE(u.balance, 0) AS balance,
@@ -171,6 +212,7 @@ export async function POST(request: NextRequest) {
         localPaymentId,
         invoiceId: localPaymentId,
         originalPrice: basePrice,
+        globalDiscountPercent,
         discountApplied,
         finalPrice: 0,
         paidFromBalanceOnly: true,
@@ -235,6 +277,7 @@ export async function POST(request: NextRequest) {
         invoiceId: result.invoiceId,
         walletId: result.walletId,
         originalPrice: basePrice,
+        globalDiscountPercent,
         discountApplied,
         finalPrice,
         paidFromBalanceOnly: false,
@@ -296,6 +339,7 @@ export async function POST(request: NextRequest) {
       localPaymentId: result.localPaymentId,
       invoiceId: result.invoiceId,
       originalPrice: basePrice,
+      globalDiscountPercent,
       discountApplied,
       finalPrice,
       paidFromBalanceOnly: false,
