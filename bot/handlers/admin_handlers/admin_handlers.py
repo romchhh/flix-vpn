@@ -8,6 +8,7 @@ from keyboards.admin_keyboards import admin_keyboard, get_stats_keyboard
 from Content.texts import get_greeting_message
 from utils.admin_functions import generate_database_export
 from database_functions.admin_db import (
+    get_admin_dashboard_metrics,
     get_subscription_discount_percent,
     get_subscription_prices,
     get_subscription_stats,
@@ -187,24 +188,46 @@ async def price_custom_input(message: types.Message, state: FSMContext):
     )
 
 
-def _format_stats_header(stats: dict, section: str, search_query: str) -> str:
+def _format_dashboard_summary() -> str:
+    d = get_admin_dashboard_metrics()
+    return (
+        "<b>📊 СТАТИСТИКА</b>\n\n"
+        "<b>👥 Користувачі</b>\n"
+        f"• Всього: <b>{d['total_users']}</b>\n"
+        f"• Нових сьогодні: <b>{d['new_users_today']}</b>\n"
+        f"• За тиждень: <b>{d['new_users_week']}</b>\n"
+        f"• За місяць: <b>{d['new_users_month']}</b>\n\n"
+        "<b>📦 Товари та підписки</b>\n"
+        f"• Товарів у каталозі: <b>{d['catalog_products']}</b>\n"
+        f"• Одноразових підписок: <b>{d['onetime_subscriptions_total']}</b> "
+        f"(активних: <b>{d['onetime_subscriptions_active']}</b>)\n"
+        f"• Помісячних підписок: <b>{d['monthly_subscriptions_total']}</b> "
+        f"(активних: <b>{d['monthly_subscriptions_active']}</b>)\n\n"
+        "<b>💰 Дохід</b>\n"
+        f"• Сьогодні: <b>{d['revenue_today']:.2f} ₴</b> "
+        f"({d['revenue_today_payments']} платежів)\n"
+        f"• За місяць: <b>{d['revenue_month']:.2f} ₴</b> "
+        f"({d['revenue_month_payments']} платежів)\n"
+        f"• Всього: <b>{d['revenue_total']:.2f} ₴</b>\n\n"
+        "<b>📅 Деталі за сьогодні</b>\n"
+        f"• Одноразові: <b>{d['today_onetime_count']}</b> шт. / "
+        f"<b>{d['today_onetime_sum']:.2f} ₴</b>\n"
+        f"• Автосписання: <b>{d['today_auto_count']}</b> шт. / "
+        f"<b>{d['today_auto_sum']:.2f} ₴</b>\n"
+        f"• Невдалих авто: <b>{d['failed_auto_today']}</b>"
+    )
+
+
+def _format_stats_header(section: str, search_query: str) -> str:
     titles = {
-        'users': '👥 Користувачі',
-        'subscriptions': '💳 Користувачі з підписками',
+        'users': '👥 Список користувачів',
+        'subscriptions': '💳 З підписками',
         'active': '✅ Активні підписки',
     }
     active_title = titles.get(section, titles['users'])
     search_line = f"\n🔎 Фільтр: <code>{html.escape(search_query)}</code>\n" if search_query else ""
-    return (
-        "<b>📊 Cтатистика Flix VPN</b>\n\n"
-        f"• Всього користувачів: <b>{stats['total_users']}</b>\n"
-        f"• З підписками: <b>{stats['users_with_subscription']}</b>\n"
-        f"• Активні зараз: <b>{stats['active_subscriptions']}</b>\n"
-        f"• Завершуються ≤ 7 днів: <b>{stats['expiring_soon']}</b>\n"
-        f"• Успішні оплати: <b>{stats['successful_payments']}</b>\n"
-        f"• Сума успішних оплат: <b>{stats['payments_total_amount']:.2f} грн</b>\n\n"
-        f"<b>{active_title}</b>{search_line}"
-    )
+    dash = _format_dashboard_summary()
+    return f"{dash}\n\n<b>{active_title}</b>{search_line}"
 
 
 def _format_user_row(index: int, user: dict) -> str:
@@ -249,7 +272,7 @@ def _build_stats_text(section: str, page: int, search_query: str):
             query=search_query,
         )
 
-    header = _format_stats_header(stats, section, search_query)
+    header = _format_stats_header(section, search_query)
     if not users:
         body = "Нічого не знайдено за поточними фільтрами."
     else:

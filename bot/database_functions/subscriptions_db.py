@@ -148,4 +148,6 @@ def create_subscriptions_tables():
         cursor.execute('ALTER TABLE payments ADD COLUMN last_error TEXT')
     if 'updated_at' not in payment_columns:
         cursor.execute('ALTER TABLE payments ADD COLUMN updated_at TEXT')
+    if 'admin_chat_notified' not in payment_columns:
+        cursor.execute('ALTER TABLE payments ADD COLUMN admin_chat_notified INTEGER DEFAULT 0')
     conn.commit()

@@ -6,6 +6,8 @@ import { createPayment, createPaymentWithTokenization } from '@/lib/monopay'
 import { getUserIdFromInitData, validateInitData } from '@/lib/telegram'
 import { SITE_PLAN_PRICE_BY_MONTHS } from '@/config/subscriptions'
 import { nowKyivIso, addMonthsFromKyiv } from '@/lib/time'
+import { ensurePaymentsNotifyColumn } from '@/lib/payments-db-migrate'
+import { buildAdminUserMarkup, parseTelegramGroupId, sendTelegramHtml } from '@/lib/telegram-notify'
 
 export const runtime = 'nodejs'
 
@@ -42,7 +44,9 @@ function openDb() {
   if (!existsSync(dbPath)) {
     throw new Error('Database file not found')
   }
-  return new Database(dbPath)
+  const db = new Database(dbPath)
+  ensurePaymentsNotifyColumn(db)
+  return db
 }
 
 function getSubscriptionDiscountPercent(db: ReturnType<typeof openDb>): number {
@@ -144,6 +148,7 @@ export async function POST(request: NextRequest) {
       const nextEndDateIso = addMonthsFromKyiv(user?.subscription_end_date ?? null, months)
       const localPaymentId = `balance_${telegramUserId}_${Math.floor(Date.now() / 1000)}`
       const createdAtIso = nowKyivIso()
+      let balancePaymentId = 0
 
       db.exec('BEGIN')
       try {
@@ -157,7 +162,7 @@ export async function POST(request: NextRequest) {
              WHERE user_id = ?`,
           ).run(discountApplied, discountApplied, telegramUserId)
         }
-        db.prepare(
+        const payIns = db.prepare(
           `INSERT INTO payments (
              user_id, local_payment_id, invoice_id, wallet_id, months, price, mode, status, created_at
            ) VALUES (?, ?, ?, NULL, ?, ?, ?, 'paid', ?)`,
@@ -170,6 +175,7 @@ export async function POST(request: NextRequest) {
           'referral_balance',
           createdAtIso,
         )
+        balancePaymentId = Number(payIns.lastInsertRowid)
         db.prepare(
           `INSERT INTO subscriptions (
              user_id, months, end_date, status, recurring_enabled, recurring_wallet_id,
@@ -204,6 +210,22 @@ export async function POST(request: NextRequest) {
         `🛡 <b>План:</b> ${months} міс.\n` +
         `💰 <b>Сума:</b> 0.00 грн (оплачено з балансу)`,
       )
+
+      const adminGid = parseTelegramGroupId()
+      if (adminGid) {
+        const adminText =
+          `💳 <b>Оплата з реферального балансу</b>\n` +
+          `User ID: <code>${telegramUserId}</code>\n` +
+          `План: ${months} міс.\n` +
+          `Сума: 0.00 грн (списано з балансу)\n` +
+          `Invoice: <code>${localPaymentId}</code>`
+        const ok = await sendTelegramHtml(adminGid, adminText, buildAdminUserMarkup(telegramUserId))
+        if (ok && balancePaymentId) {
+          db.prepare('UPDATE payments SET admin_chat_notified = 1 WHERE id = ?').run(balancePaymentId)
+        }
+      } else if (balancePaymentId) {
+        db.prepare('UPDATE payments SET admin_chat_notified = 1 WHERE id = ?').run(balancePaymentId)
+      }
 
       return NextResponse.json({
         ok: true,

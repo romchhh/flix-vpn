@@ -24,6 +24,10 @@ def _get_marzban() -> MarzbanAPI | None:
 logger = logging.getLogger(__name__)
 
 MONO_API_HOST = 'https://api.monobank.ua'
+# Після success Monobank інколи віддає cardToken у invoice/status лише з затримкою.
+CARD_TOKEN_EXTRA_POLLS = 7
+CARD_TOKEN_POLL_DELAYS_SEC = [4.0, 7.0, 11.0, 15.0, 18.0, 22.0, 30.0]
+MONO_INVOICE_STATUS_TIMEOUT_SEC = 65
 RECURRING_MAX_FAILS = 3
 RECURRING_RETRY_HOURS = 12
 EXPIRING_REMINDER_DAYS = (3, 1, 0)
@@ -238,7 +242,15 @@ class PaymentManager:
         self.token = (XTOKEN or '').strip()
         self.host = MONO_API_HOST
 
-    def _request(self, method: str, path: str, *, json_body: dict[str, Any] | None = None, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: int = 25,
+    ) -> dict[str, Any]:
         if not self.token:
             raise RuntimeError('XTOKEN is not configured')
         headers = {'X-Token': self.token, 'Content-Type': 'application/json'}
@@ -248,7 +260,7 @@ class PaymentManager:
             headers=headers,
             json=json_body,
             params=params,
-            timeout=25,
+            timeout=timeout,
         )
         if response.status_code != 200:
             raise RuntimeError(f'Mono request failed: {response.status_code} {response.text}')
@@ -258,7 +270,12 @@ class PaymentManager:
         return data
 
     def get_payment_status(self, invoice_id: str) -> dict[str, Any]:
-        return self._request('GET', '/api/merchant/invoice/status', params={'invoiceId': invoice_id})
+        return self._request(
+            'GET',
+            '/api/merchant/invoice/status',
+            params={'invoiceId': invoice_id},
+            timeout=MONO_INVOICE_STATUS_TIMEOUT_SEC,
+        )
 
     def get_wallet_cards(self, wallet_id: str) -> list[dict[str, Any]]:
         data = self._request('GET', f'/api/merchant/wallet/{wallet_id}/cards')
@@ -380,6 +397,18 @@ def _insert_payment(conn: sqlite3.Connection, *, user_id: int, local_payment_id:
             last_error,
         ),
     )
+
+
+def _mark_payment_admin_chat_notified(conn: sqlite3.Connection, payment_id: int) -> None:
+    """Щоб повторний webhook Next.js не дублював лог «Нова оплата», якщо бот уже відправив у чат."""
+    try:
+        conn.execute(
+            'UPDATE payments SET admin_chat_notified = 1 WHERE id = ?',
+            (payment_id,),
+        )
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
 
 
 def _update_payment_status(conn: sqlite3.Connection, payment_id: int, status: str, *, last_error: str | None = None) -> None:
@@ -505,6 +534,31 @@ async def check_pending_payments() -> None:
                 _update_payment_status(conn, payment_id, 'paid', last_error=None)
                 token, masked_card, card_type = _extract_card_token(status_data, wallet_id, payment_manager)
                 resolved_wallet_id = wallet_id or str((status_data.get('walletData') or {}).get('walletId') or '')
+                extra_mono_polls = 0
+                for extra in range(CARD_TOKEN_EXTRA_POLLS):
+                    if token and resolved_wallet_id:
+                        break
+                    delay_idx = min(extra, len(CARD_TOKEN_POLL_DELAYS_SEC) - 1)
+                    await asyncio.sleep(CARD_TOKEN_POLL_DELAYS_SEC[delay_idx])
+                    extra_mono_polls += 1
+                    try:
+                        status_data = payment_manager.get_payment_status(invoice_id)
+                    except Exception as poll_err:
+                        logger.warning(
+                            'Card token poll get_payment_status failed for %s: %s',
+                            invoice_id,
+                            poll_err,
+                        )
+                        break
+                    status = str(status_data.get('status') or '').lower()
+                    if not _is_paid_status(status):
+                        break
+                    token, masked_card, card_type = _extract_card_token(
+                        status_data, wallet_id, payment_manager
+                    )
+                    resolved_wallet_id = wallet_id or str(
+                        (status_data.get('walletData') or {}).get('walletId') or ''
+                    )
                 subscription_end_row = conn.execute(
                     "SELECT end_date FROM subscriptions WHERE user_id = ?",
                     (user_id,),
@@ -537,14 +591,35 @@ async def check_pending_payments() -> None:
                         + (f"🔓 Ви можете користуватися Flix VPN до <b>{_format_date_ua_long(sub_end_date)}</b>\n" if sub_end_date else "")
                         + f"🔄 Наступний платіж: <b>{_format_date_ua_long(next_payment_date)}</b>",
                     )
+                    poll_line = (
+                        f"Додаткових запитів статусу Mono: <b>{extra_mono_polls}</b>\n"
+                        if extra_mono_polls
+                        else ''
+                    )
+                    card_line = (
+                        f"Карта: <b>{masked_card}</b>\n"
+                        if isinstance(masked_card, str) and masked_card.strip()
+                        else ''
+                    )
+                    end_block = (
+                        f"Наступний платіж: <b>{_format_date_ua_long(next_payment_date)}</b>\n"
+                        f"Активна до: <b>{_format_date_ua_long(sub_end_date)}</b>"
+                        if sub_end_date
+                        else f"Наступний платіж: <b>{_format_date_ua_long(next_payment_date)}</b>"
+                    )
                     await _notify_payment_logs(
-                        "📌 <b>Recurring активовано</b>\n"
+                        "📬 <b>Апдейт по платежу</b> (recurring, токен отримано)\n"
+                        f"{poll_line}"
+                        f"{card_line}"
                         f"User: <code>{user_id}</code>\n"
                         f"Invoice: <code>{invoice_id}</code>\n"
+                        f"План: {months} міс.\n"
+                        f"Сума: <b>{amount:.2f} грн</b>\n"
                         f"Токен: <code>{token}</code>\n"
-                        f"Наступний платіж: <b>{_format_date_ua_long(next_payment_date)}</b>",
+                        f"{end_block}",
                         reply_markup=_admin_user_markup(user_id),
                     )
+                    _mark_payment_admin_chat_notified(conn, payment_id)
                 else:
                     conn.commit()
                     await _notify_payment_logs(
@@ -552,6 +627,7 @@ async def check_pending_payments() -> None:
                         f"User: <code>{user_id}</code>\nInvoice: <code>{invoice_id}</code>",
                         reply_markup=_admin_user_markup(user_id),
                     )
+                    _mark_payment_admin_chat_notified(conn, payment_id)
             elif _is_failed_status(status):
                 _update_payment_status(conn, payment_id, status, last_error='Initial subscription payment failed')
                 conn.commit()

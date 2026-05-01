@@ -380,6 +380,164 @@ def _parse_subscription_end_date(raw_value: str | None) -> datetime | None:
     return None
 
 
+def _payment_ts_raw(created_at: str | None, updated_at: str | None) -> str | None:
+    return (updated_at or created_at or '').strip() or None
+
+
+def _is_paid_payment_status(status: str | None) -> bool:
+    return (status or '').strip().lower() in {'paid', 'success'}
+
+
+def _is_failed_recurring_status(status: str | None) -> bool:
+    st = (status or '').strip().lower()
+    if st in {'paid', 'success', 'created', 'processing'}:
+        return False
+    return st in {
+        'failure',
+        'failed',
+        'expired',
+        'cancelled',
+        'reversed',
+        'declined',
+        'error',
+    }
+
+
+def get_admin_dashboard_metrics() -> dict:
+    """
+    Агреговані метрики для адмін-дашборду (календарний «сьогодні» та «місяць» у часовому поясі Києва).
+    """
+    now = now_kyiv()
+    today_date = now.date()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    week_start = now - timedelta(days=7)
+
+    cursor.execute('SELECT COUNT(*) FROM users')
+    total_users = int(cursor.fetchone()[0] or 0)
+
+    new_today = 0
+    new_week = 0
+    new_month = 0
+    cursor.execute(
+        "SELECT join_date FROM users WHERE join_date IS NOT NULL AND TRIM(join_date) != ''"
+    )
+    for (join_raw,) in cursor.fetchall():
+        joined = _parse_subscription_end_date(join_raw)
+        if not joined:
+            continue
+        if joined.date() == today_date:
+            new_today += 1
+        if joined >= week_start:
+            new_week += 1
+        if joined >= month_start:
+            new_month += 1
+
+    catalog_products = 4
+    try:
+        cursor.execute(
+            "SELECT COUNT(*) FROM app_settings WHERE key LIKE 'subscription_price_%'"
+        )
+        row = cursor.fetchone()
+        if row and int(row[0] or 0) > 0:
+            catalog_products = int(row[0])
+    except sqlite3.OperationalError:
+        pass
+
+    onetime_total = 0
+    onetime_active = 0
+    monthly_total = 0
+    monthly_active = 0
+    try:
+        cursor.execute(
+            """
+            SELECT months, status, end_date, COALESCE(recurring_enabled, 0)
+            FROM subscriptions
+            WHERE months IS NOT NULL
+            """
+        )
+        for _months, status, end_raw, rec in cursor.fetchall():
+            end = _parse_subscription_end_date(end_raw)
+            is_active = (status or '').lower() == 'active' and end is not None and end > now
+            if int(rec or 0) == 1:
+                monthly_total += 1
+                if is_active:
+                    monthly_active += 1
+            else:
+                onetime_total += 1
+                if is_active:
+                    onetime_active += 1
+    except sqlite3.OperationalError:
+        pass
+
+    revenue_total = 0.0
+    revenue_today = 0.0
+    revenue_month = 0.0
+    count_paid_total = 0
+    count_paid_today = 0
+    count_paid_month = 0
+    today_onetime_count = 0
+    today_onetime_sum = 0.0
+    today_auto_count = 0
+    today_auto_sum = 0.0
+    failed_auto_today = 0
+
+    try:
+        cursor.execute(
+            'SELECT price, status, mode, created_at, updated_at FROM payments'
+        )
+        pay_rows = cursor.fetchall()
+    except sqlite3.OperationalError:
+        pay_rows = []
+
+    for price, status, mode, created_at, updated_at in pay_rows:
+        ts = _parse_subscription_end_date(_payment_ts_raw(created_at, updated_at))
+        mode_l = (mode or '').strip().lower()
+        if _is_paid_payment_status(status):
+            amt = float(price or 0)
+            revenue_total += amt
+            count_paid_total += 1
+            if ts:
+                if ts.date() == today_date:
+                    revenue_today += amt
+                    count_paid_today += 1
+                if ts >= month_start:
+                    revenue_month += amt
+                    count_paid_month += 1
+                if ts.date() == today_date:
+                    if mode_l == 'recurring_charge':
+                        today_auto_count += 1
+                        today_auto_sum += amt
+                    else:
+                        today_onetime_count += 1
+                        today_onetime_sum += amt
+        elif mode_l == 'recurring_charge' and ts and ts.date() == today_date:
+            if _is_failed_recurring_status(status):
+                failed_auto_today += 1
+
+    return {
+        'total_users': total_users,
+        'new_users_today': new_today,
+        'new_users_week': new_week,
+        'new_users_month': new_month,
+        'catalog_products': catalog_products,
+        'onetime_subscriptions_total': onetime_total,
+        'onetime_subscriptions_active': onetime_active,
+        'monthly_subscriptions_total': monthly_total,
+        'monthly_subscriptions_active': monthly_active,
+        'revenue_today': revenue_today,
+        'revenue_today_payments': count_paid_today,
+        'revenue_month': revenue_month,
+        'revenue_month_payments': count_paid_month,
+        'revenue_total': revenue_total,
+        'revenue_total_payments': count_paid_total,
+        'today_onetime_count': today_onetime_count,
+        'today_onetime_sum': today_onetime_sum,
+        'today_auto_count': today_auto_count,
+        'today_auto_sum': today_auto_sum,
+        'failed_auto_today': failed_auto_today,
+    }
+
+
 def get_subscription_stats() -> dict:
     now = now_kyiv()
     soon_threshold = now + timedelta(days=7)
