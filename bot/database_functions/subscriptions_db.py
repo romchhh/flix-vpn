@@ -150,4 +150,10 @@ def create_subscriptions_tables():
         cursor.execute('ALTER TABLE payments ADD COLUMN updated_at TEXT')
     if 'admin_chat_notified' not in payment_columns:
         cursor.execute('ALTER TABLE payments ADD COLUMN admin_chat_notified INTEGER DEFAULT 0')
+    cursor.execute('PRAGMA table_info(subscriptions)')
+    subscription_columns = {row[1] for row in cursor.fetchall()}
+    if 'expiry_reminder_end_date' not in subscription_columns:
+        cursor.execute('ALTER TABLE subscriptions ADD COLUMN expiry_reminder_end_date TEXT')
+    if 'expiry_reminders_sent' not in subscription_columns:
+        cursor.execute('ALTER TABLE subscriptions ADD COLUMN expiry_reminders_sent TEXT DEFAULT ""')
     conn.commit()

@@ -44,7 +44,7 @@ async def scheduler_jobs():
     scheduler.add_job(
         check_expiring_subscriptions,
         "interval",
-        hours=2,
+        hours=12,
         id="check_expiring_subscriptions",
         replace_existing=True,
     )

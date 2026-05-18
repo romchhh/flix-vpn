@@ -30,7 +30,8 @@ CARD_TOKEN_POLL_DELAYS_SEC = [4.0, 7.0, 11.0, 15.0, 18.0, 22.0, 30.0]
 MONO_INVOICE_STATUS_TIMEOUT_SEC = 65
 RECURRING_MAX_FAILS = 3
 RECURRING_RETRY_HOURS = 12
-EXPIRING_REMINDER_DAYS = (3, 1, 0)
+# Одне нагадування за N днів до кінця періоду (не повторювати кожен запуск планувальника).
+EXPIRING_REMINDER_DAYS = (3,)
 UA_MONTHS_GENITIVE = (
     'січня',
     'лютого',
@@ -965,13 +966,67 @@ async def process_recurring_payments() -> None:
         conn.close()
 
 
+def _parse_expiry_reminders_sent(raw: str | None) -> set[int]:
+    if not raw:
+        return set()
+    result: set[int] = set()
+    for part in str(raw).split(','):
+        piece = part.strip()
+        if piece.isdigit():
+            result.add(int(piece))
+    return result
+
+
+def _expiry_reminder_already_sent(
+    row: sqlite3.Row,
+    *,
+    end_day_key: str,
+    days_left: int,
+) -> bool:
+    stored_end = str(row['expiry_reminder_end_date'] or '').strip()
+    if stored_end != end_day_key:
+        return False
+    return days_left in _parse_expiry_reminders_sent(row['expiry_reminders_sent'])
+
+
+def _mark_expiry_reminder_sent(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int,
+    end_day_key: str,
+    days_left: int,
+    previous_end_key: str | None,
+    previous_sent_raw: str | None,
+) -> None:
+    stored_end = str(previous_end_key or '').strip()
+    sent_days = (
+        _parse_expiry_reminders_sent(previous_sent_raw)
+        if stored_end == end_day_key
+        else set()
+    )
+    sent_days.add(days_left)
+    sent_value = ','.join(str(day) for day in sorted(sent_days))
+    conn.execute(
+        '''
+        UPDATE subscriptions
+        SET expiry_reminder_end_date = ?, expiry_reminders_sent = ?
+        WHERE user_id = ?
+        ''',
+        (end_day_key, sent_value, user_id),
+    )
+
+
 async def check_expiring_subscriptions() -> None:
     conn = _db_connect()
     try:
         now = now_kyiv()
         rows = conn.execute(
             """
-            SELECT user_id, end_date AS subscription_end_date, COALESCE(recurring_enabled, 0) AS recurring_enabled
+            SELECT user_id,
+                   end_date AS subscription_end_date,
+                   COALESCE(recurring_enabled, 0) AS recurring_enabled,
+                   expiry_reminder_end_date,
+                   expiry_reminders_sent
             FROM subscriptions
             WHERE LOWER(COALESCE(status, '')) = 'active'
             """
@@ -989,6 +1044,10 @@ async def check_expiring_subscriptions() -> None:
 
             days_left = (end_day - now_day).days
             if days_left not in EXPIRING_REMINDER_DAYS:
+                continue
+
+            end_day_key = end_day.isoformat()
+            if _expiry_reminder_already_sent(row, end_day_key=end_day_key, days_left=days_left):
                 continue
 
             recurring_enabled = bool(row['recurring_enabled'])
@@ -1027,6 +1086,14 @@ async def check_expiring_subscriptions() -> None:
                         "Для тарифів 3/6/12 міс. продовження доступне вручну через кабінет."
                     )
             await _notify_user(user_id, text, reply_markup=_mini_app_reply_markup(user_id))
+            _mark_expiry_reminder_sent(
+                conn,
+                user_id=user_id,
+                end_day_key=end_day_key,
+                days_left=days_left,
+                previous_end_key=row['expiry_reminder_end_date'],
+                previous_sent_raw=row['expiry_reminders_sent'],
+            )
         conn.commit()
     finally:
         conn.close()
